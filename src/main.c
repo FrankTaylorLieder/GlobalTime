@@ -1,21 +1,37 @@
 #include <pebble.h>
+
+/*
+ * TODO Sort timezones based on offset from localtime.
+ * TODO Add current time if not one of the specified timeszones
+ * TODO Add current date to current time display
+ * TODO Add TZ name to display (for non-local time displays)
+ * TODO Support <4 timezones set
+ * TODO Config page, initialise to current settings
+ * TODO Add battery indicator
+ * TODO Add bluetooth indicator
+ * TODO Pretty up display
+ * TODO Reduce size of JS, and include more interesting TZs
+ */
   
+// Keys for timezone names
 #define KEY_TZ1 1
 #define KEY_TZ2 2
 #define KEY_TZ3 3
 #define KEY_TZ4 4
 
+// Keys for timezone offsets
 #define KEY_OFFSET1 11
 #define KEY_OFFSET2 12
 #define KEY_OFFSET3 13
 #define KEY_OFFSET4 14
-  
+
+// Timezone string size (max)
 #define TZ_SIZE (100)
   
 static Window *s_main_window;
 static TextLayer *s_time_layer;
 
-// Offsets from UTC, in minutes.
+// Offsets from local time, in minutes.
 static int s_num_times = 4;
 static int32_t s_offsets[4];
 static char s_tz[4][TZ_SIZE];
@@ -113,7 +129,7 @@ static void update_time() {
   
   int32_t difference = now - s_last_tick;
   if (difference > 360 || difference < -360) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Difference is more than 10 minutes, requesting TZ information again...");
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Difference is more than 6 minutes, requesting TZ information again...");
     send_tz_request();
   }
   s_last_tick = now;
@@ -172,7 +188,6 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
 }
 
-
 static void send_tz_request() {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -188,7 +203,6 @@ static void send_tz_request() {
   // Send the message!
   app_message_outbox_send();
 }
-
 
 static void init() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising...");
@@ -235,7 +249,6 @@ static void deinit() {
 
   // Destroy TextLayer
   text_layer_destroy(s_time_layer);
-
 }
 
 int main(void) {
