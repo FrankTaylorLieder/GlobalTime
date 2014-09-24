@@ -1,0 +1,28 @@
+{
+    "appKeys": {
+        "offset1": 11,
+        "offset2": 12,
+        "offset3": 13,
+        "offset4": 14,
+        "tz1": 1,
+        "tz2": 2,
+        "tz3": 3,
+        "tz4": 4
+    },
+    "capabilities": [
+        "configurable"
+    ],
+    "companyName": "Frank Taylor",
+    "longName": "GlobalTime",
+    "projectType": "native",
+    "resources": {
+        "media": []
+    },
+    "shortName": "GlobalTime",
+    "uuid": "0b128b72-2278-42fd-8dbd-402e7da5bcc5",
+    "versionCode": 1,
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}
