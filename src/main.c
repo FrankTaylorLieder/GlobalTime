@@ -13,6 +13,7 @@
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Pretty up display
  * TODO Reduce size of JS, and include more interesting TZs
+ * TODO BUG: when switching to GlobalTime from World Watch, the TZs are not correctly updated. Possibly because WW sends a message we don't interpret.
  */
   
 // Keys for timezone names
