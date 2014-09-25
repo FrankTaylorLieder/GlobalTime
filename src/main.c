@@ -1,14 +1,16 @@
 #include <pebble.h>
 
 /*
+ * TODO persist current localtime/TS offsets locally - so that the watch can start if not connected to the phone
  * TODO Sort timezones based on offset from localtime.
- * TODO Add current time if not one of the specified timeszones
+ * TODO Add current time if not one of the specified timezones
  * TODO Add current date to current time display
  * TODO Add TZ name to display (for non-local time displays)
  * TODO Support <4 timezones set
  * TODO Config page, initialise to current settings
  * TODO Add battery indicator
  * TODO Add bluetooth indicator
+ * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Pretty up display
  * TODO Reduce size of JS, and include more interesting TZs
  */
