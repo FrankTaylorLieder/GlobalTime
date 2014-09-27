@@ -1,13 +1,13 @@
 {
     "appKeys": {
-        "offset1": 11,
-        "offset2": 12,
-        "offset3": 13,
-        "offset4": 14,
-        "tz1": 1,
-        "tz2": 2,
-        "tz3": 3,
-        "tz4": 4
+        "offset1": 6611,
+        "offset2": 6612,
+        "offset3": 6613,
+        "offset4": 6614,
+        "tz1": 6601,
+        "tz2": 6602,
+        "tz3": 6603,
+        "tz4": 6604
     },
     "capabilities": [
         "configurable"

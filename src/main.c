@@ -1,11 +1,12 @@
 #include <pebble.h>
 
 /*
- * TODO persist current localtime/TS offsets locally - so that the watch can start if not connected to the phone
+ * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
+ * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO Sort timezones based on offset from localtime.
  * TODO Add current time if not one of the specified timezones
  * TODO Add current date to current time display
- * TODO Add TZ name to display (for non-local time displays)
+ * TODO Add TZ label to display (for non-local time displays)
  * TODO Support <4 timezones set
  * TODO Config page, initialise to current settings
  * TODO Add battery indicator
@@ -13,20 +14,20 @@
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Pretty up display
  * TODO Reduce size of JS, and include more interesting TZs
- * TODO BUG: when switching to GlobalTime from World Watch, the TZs are not correctly updated. Possibly because WW sends a message we don't interpret.
+ * TODO BUG: when switching to GlobalTime from World Watch, the TZs are not correctly updated. Possibly because WW sends a message we don't interpret. Partially fixed by persisting offsets, but problem is JS is not loading fast enough.
  */
   
 // Keys for timezone names
-#define KEY_TZ1 1
-#define KEY_TZ2 2
-#define KEY_TZ3 3
-#define KEY_TZ4 4
+#define KEY_TZ1 6601
+#define KEY_TZ2 6602
+#define KEY_TZ3 6603
+#define KEY_TZ4 6604
 
 // Keys for timezone offsets
-#define KEY_OFFSET1 11
-#define KEY_OFFSET2 12
-#define KEY_OFFSET3 13
-#define KEY_OFFSET4 14
+#define KEY_OFFSET1 6611
+#define KEY_OFFSET2 6612
+#define KEY_OFFSET3 6613
+#define KEY_OFFSET4 6614
 
 // Timezone string size (max)
 #define TZ_SIZE (100)
@@ -36,7 +37,7 @@ static TextLayer *s_time_layer;
 
 // Offsets from local time, in minutes.
 static int s_num_times = 4;
-static int32_t s_offsets[4];
+static int32_t s_offset[4];
 static char s_tz[4][TZ_SIZE];
 static time_t s_last_tick = 0;
 
@@ -50,23 +51,39 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
   Tuple *o4_tuple = dict_find(received, KEY_OFFSET4);
 
   if (o1_tuple) {
-    s_offsets[0] = o1_tuple->value->int32;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 1: %ld", s_offsets[0]);
+    s_offset[0] = o1_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET1, s_offset[0]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 1: %ld", s_offset[0]);
   }
   
   if (o2_tuple) {
-    s_offsets[1] = o2_tuple->value->int32;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 2: %ld", s_offsets[1]);
+    s_offset[1] = o2_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET2, s_offset[1]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 2: %ld", s_offset[1]);
   }
   
   if (o3_tuple) {
-    s_offsets[2] = o3_tuple->value->int32;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 3: %ld", s_offsets[2]);
+    s_offset[2] = o3_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET3, s_offset[2]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 3: %ld", s_offset[2]);
   }
   
   if (o4_tuple) {
-    s_offsets[3] = o4_tuple->value->int32;
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 4: %ld", s_offsets[3]);
+    s_offset[3] = o4_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET4, s_offset[3]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 4: %ld", s_offset[3]);
   }
   
   Tuple *tz1_tuple = dict_find(received, KEY_TZ1);
@@ -141,7 +158,7 @@ static void update_time() {
     time_t temp = now;
     
     // Apply TZ offset
-    temp += s_offsets[i] * 60;
+    temp += s_offset[i] * 60;
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset %d time: %ld", i, temp);
 
     struct tm *tick_time = localtime(&temp);
@@ -157,7 +174,7 @@ static void update_time() {
     
     tb[0] = 0;
     strcat(tb, tt);
-    if (0 == s_offsets[i]) {
+    if (0 == s_offset[i]) {
       strcat(tb, " *");
     }
     add_line(buffer, tb);
@@ -216,7 +233,15 @@ static void init() {
   persist_read_string(KEY_TZ3, s_tz[2], 100);
   persist_read_string(KEY_TZ4, s_tz[3], 100);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration: %s, %s, %s, %s", s_tz[0], s_tz[1], s_tz[2], s_tz[3]);
+  s_offset[0] = persist_read_int(KEY_OFFSET1);
+  s_offset[1] = persist_read_int(KEY_OFFSET2);
+  s_offset[2] = persist_read_int(KEY_OFFSET3);
+  s_offset[3] = persist_read_int(KEY_OFFSET4);
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s (%ld)", s_tz[0], s_offset[0]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 2: %s (%ld)", s_tz[1], s_offset[1]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 3: %s (%ld)", s_tz[2], s_offset[2]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 4: %s (%ld)", s_tz[3], s_offset[3]);
   
   // Register a callback for the UTC offset information
   // TODO register failure callbacks too
