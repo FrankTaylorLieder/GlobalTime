@@ -5,7 +5,7 @@
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * DONE Sort timezones based on offset from localtime.
  * DONE Add current time if not one of the specified timezones
- * TODO Add current date to current time display
+ * DONE Add current date to current time display
  * TODO Add TZ label to display (for non-local time displays)
  * DONE Support <4 timezones set
  * TODO Config page, initialise to current settings
@@ -290,6 +290,12 @@ static void update_time() {
       strcat(tb, " *");
     }
     add_line(buffer, tb, i == 0);
+    
+    if (0 == offset) {
+      // Displaying local time, so add a date line
+      strftime(tt, sizeof(tt), "%a, %d %b", tick_time);
+      add_line(buffer, tt, false);
+    }
   }
  
   // Display this time on the TextLayer
