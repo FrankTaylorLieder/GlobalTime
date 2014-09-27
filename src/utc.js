@@ -3811,6 +3811,9 @@
 ///////////////////////////////
 
 function offset(t) {
+  if (t === "") {
+    return -2000;
+  }
   var tzLocal = moment();
   var tzRemote = tz(t);
   return tzLocal.zone() - tzRemote.zone();
