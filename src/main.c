@@ -6,7 +6,8 @@
  * DONE Sort timezones based on offset from localtime.
  * DONE Add current time if not one of the specified timezones
  * DONE Add current date to current time display
- * TODO Add TZ label to display (for non-local time displays)
+ * DONE Add TZ label to display (for non-local time displays)
+ * TODO Limit label size
  * DONE Support <4 timezones set
  * TODO Config page, initialise to current settings
  * TODO Add battery indicator
@@ -23,6 +24,12 @@
 #define KEY_TZ3 6603
 #define KEY_TZ4 6604
 
+// Keys for labels
+#define KEY_LABEL1 6621
+#define KEY_LABEL2 6622
+#define KEY_LABEL3 6623
+#define KEY_LABEL4 6624
+
 // Keys for timezone offsets
 #define KEY_OFFSET1 6611
 #define KEY_OFFSET2 6612
@@ -31,6 +38,9 @@
 
 // Timezone string size (max)
 #define TZ_SIZE (100)
+  
+// Label string size (max)
+#define LABEL_SIZE (100)
   
 // Display the local time
 #define DISPLAY_LOCAL_TIME (-1)
@@ -46,6 +56,9 @@ static int s_num_times = 4;
 
 // Offsets for configured timezones, DISPLAY_NO_DISPLAY for no display.
 static int32_t s_offset[4];
+
+// Labels for configured timezones.
+static char s_label[4][LABEL_SIZE];
 
 // Configured timezones, NULL for no display.
 static char s_tz[4][TZ_SIZE];
@@ -225,12 +238,41 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     tz_set = true;
   }
   
+  Tuple *l1_tuple = dict_find(received, KEY_LABEL1);
+  Tuple *l2_tuple = dict_find(received, KEY_LABEL2);
+  Tuple *l3_tuple = dict_find(received, KEY_LABEL3);
+  Tuple *l4_tuple = dict_find(received, KEY_LABEL4);
+  
+  if (l1_tuple) {
+    strncpy(s_label[0], l1_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL1, s_label[0]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 1: %s", s_label[0]);
+  }
+
+  if (l2_tuple) {
+    strncpy(s_label[1], l2_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL2, s_label[1]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 2: %s", s_label[1]);
+  }
+
+  if (l3_tuple) {
+    strncpy(s_label[2], l3_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL3, s_label[2]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 3: %s", s_label[2]);
+  }
+
+  if (l4_tuple) {
+    strncpy(s_label[3], l4_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL4, s_label[3]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 4: %s", s_label[3]);
+  }
+
   if (tz_set) {
     send_tz_request();
   } else {
     sort_times();
   }
-
+  
   update_time();
 }
 
@@ -285,6 +327,10 @@ static void update_time() {
     }
     
     tb[0] = 0;
+    if (0 != offset) {
+      strncat(tb, s_label[display], 20);
+      strcat(tb, " ");
+    }
     strcat(tb, tt);
     if (0 == offset) {
       strcat(tb, " *");
@@ -346,20 +392,25 @@ static void init() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising...");
   
   // Read current TZ config
-  persist_read_string(KEY_TZ1, s_tz[0], 100);
-  persist_read_string(KEY_TZ2, s_tz[1], 100);
-  persist_read_string(KEY_TZ3, s_tz[2], 100);
-  persist_read_string(KEY_TZ4, s_tz[3], 100);
+  persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
+  persist_read_string(KEY_TZ2, s_tz[1], TZ_SIZE);
+  persist_read_string(KEY_TZ3, s_tz[2], TZ_SIZE);
+  persist_read_string(KEY_TZ4, s_tz[3], TZ_SIZE);
   
   s_offset[0] = persist_read_int(KEY_OFFSET1);
   s_offset[1] = persist_read_int(KEY_OFFSET2);
   s_offset[2] = persist_read_int(KEY_OFFSET3);
   s_offset[3] = persist_read_int(KEY_OFFSET4);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s (%ld)", s_tz[0], s_offset[0]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 2: %s (%ld)", s_tz[1], s_offset[1]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 3: %s (%ld)", s_tz[2], s_offset[2]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 4: %s (%ld)", s_tz[3], s_offset[3]);
+  persist_read_string(KEY_LABEL1, s_label[0], LABEL_SIZE);
+  persist_read_string(KEY_LABEL2, s_label[1], LABEL_SIZE);
+  persist_read_string(KEY_LABEL3, s_label[2], LABEL_SIZE);
+  persist_read_string(KEY_LABEL4, s_label[3], LABEL_SIZE);
+
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s - %s (%ld)", s_label[0], s_tz[0], s_offset[0]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 2: %s - %s (%ld)", s_label[1], s_tz[1], s_offset[1]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 3: %s - %s (%ld)", s_label[2], s_tz[2], s_offset[2]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 4: %s - %s (%ld)", s_label[3], s_tz[3], s_offset[3]);
   
   sort_times();
   

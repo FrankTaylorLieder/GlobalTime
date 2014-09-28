@@ -3846,7 +3846,7 @@ Pebble.addEventListener("webviewclosed",
  
     //Send to Pebble, persist there
     Pebble.sendAppMessage(
-      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4 },
+      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4},
       function(e) {
         console.log("Sending settings data...");
       },
