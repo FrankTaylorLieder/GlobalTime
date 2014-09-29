@@ -6,7 +6,8 @@
  * TODO Add battery indicator
  * TODO Add bluetooth indicator
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
- * TODO Pretty up display
+ * DONE Pretty up display
+ * TODO Select custom fonts
  * TODO Reduce size of JS, and include more interesting TZs
  * TODO Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
  * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
@@ -50,7 +51,23 @@
 #define OFFSET_NO_DISPLAY (-2000)
   
 static Window *s_main_window;
-static TextLayer *s_time_layer;
+
+static TextLayer *s_tz_label_layer[4];
+static TextLayer *s_tz_time_layer[4];
+static TextLayer *s_status_layer;
+static TextLayer *s_local_time_layer;
+static TextLayer *s_local_date_layer;
+
+#define LAYER_TZ_LABEL_WIDTH (84)
+#define LAYER_TZ_TIME_WIDTH (60)
+#define LAYER_TZ_HEIGHT (24)
+
+#define LAYER_STATUS_WIDTH (144)
+#define LAYER_STATUS_HEIGHT (12)
+
+#define LAYER_LOCAL_WIDTH (144)
+#define LAYER_LOCAL_TIME_HEIGHT (30)
+#define LAYER_LOCAL_DATE_HEIGHT (30)
 
 // Number of configured timezones
 static int s_num_times = 4;
@@ -77,6 +94,7 @@ static int s_display[5];
 
 static void update_time();
 static void send_tz_request();
+static void create_layers();
 
 // Compare and swap indexes based on the offsets they refer to.
 static void compare_swap(int index[], int i) {
@@ -159,6 +177,9 @@ static void sort_times() {
               (x == DISPLAY_LOCAL_TIME) ? "LOCAL" : s_tz[x],
               (x == DISPLAY_LOCAL_TIME) ? 0 : s_offset[x]);
   }
+  
+  create_layers();
+  
   APP_LOG(APP_LOG_LEVEL_DEBUG, "...sort_times");
 }
 
@@ -286,13 +307,12 @@ static void add_line(char *buffer, char *additional_line, bool first_line) {
 
 static void update_time() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "UpdateTime...");
-  // Create a long-lived buffer
-  static char buffer[128];
-  char tb[20];
-  char tt[20];
   
-  // Reset the buffer for each use
-  buffer[0] = 0;
+  // Create long lived buffers
+  static char s_local_time[20];
+  static char s_local_date[20];
+  static char s_tz_time[4][20];
+  char tt[20];
 
   // Get a tm structure
   time_t now;
@@ -306,6 +326,7 @@ static void update_time() {
   }
   s_last_tick = now;
 
+  int d = 0;
   for (int i = 0; i < s_num_display; i++) {
     time_t temp = now;
     
@@ -327,46 +348,119 @@ static void update_time() {
       strftime(tt, sizeof("00:00"), "%I:%M", tick_time);
     }
     
-    tb[0] = 0;
-    if (0 != offset) {
-      strncat(tb, s_label[display], 20);
-      strcat(tb, " ");
-    }
-    strcat(tb, tt);
     if (0 == offset) {
-      strcat(tb, " *");
-    }
-    add_line(buffer, tb, i == 0);
+      strncpy(s_local_time, tt, sizeof(s_local_time));
+      text_layer_set_text(s_local_time_layer, s_local_time);
+      
+      strftime(s_local_date, sizeof(s_local_date), "%a, %d %b", tick_time);
+      text_layer_set_text(s_local_date_layer, s_local_date);
+    } else {
+      text_layer_set_text(s_tz_label_layer[d], s_label[display]);
+      
+      strncpy(s_tz_time[d], tt, sizeof(s_tz_time[d]));
+      text_layer_set_text(s_tz_time_layer[d], s_tz_time[d]);
+              
+      d++;
+    }  
+  }
+}
+
+static void delete_layer(Layer *layer) {
+  if (layer) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing: %p", layer);
+    layer_destroy(layer);
+  }
+}
+
+static void delete_layers() {
+  // Null the layers
+  for (int i = 0; i < 4; i++) {
+    layer_remove_from_parent((Layer *) s_tz_label_layer[i]);
+    layer_remove_from_parent((Layer *) s_tz_time_layer[i]);
     
-    if (0 == offset) {
-      // Displaying local time, so add a date line
-      strftime(tt, sizeof(tt), "%a, %d %b", tick_time);
-      add_line(buffer, tt, false);
+    delete_layer((Layer *) s_tz_label_layer[i]);
+    delete_layer((Layer *) s_tz_time_layer[i]);
+    
+    s_tz_label_layer[i] = NULL;
+    s_tz_time_layer[i] = NULL;
+  }
+  
+  layer_remove_from_parent((Layer *) s_local_time_layer);
+  layer_remove_from_parent((Layer *) s_local_date_layer);
+
+  delete_layer((Layer *) s_local_time_layer);
+  delete_layer((Layer *) s_local_date_layer);
+  
+  s_local_time_layer = NULL;
+  s_local_date_layer = NULL;
+}
+
+static TextLayer *create_text_layer(GRect rect) {
+  TextLayer *l = text_layer_create(rect);
+
+  text_layer_set_background_color(l, GColorClear);
+  text_layer_set_text_color(l, GColorBlack);
+  
+  layer_add_child(window_get_root_layer(s_main_window), (Layer *) l);
+
+  return l;
+}
+
+static void create_layers() {
+  delete_layers();
+  
+  int d = 0;
+  int top = LAYER_STATUS_HEIGHT;
+  for (int i = 0; i < s_num_display; i++) {
+    int display = s_display[i];
+    
+    if (DISPLAY_LOCAL_TIME == display) {
+      s_local_time_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_TIME_HEIGHT));
+      text_layer_set_font(s_local_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
+      text_layer_set_text_alignment(s_local_time_layer, GTextAlignmentCenter);
+      top += LAYER_LOCAL_TIME_HEIGHT;
+      
+      s_local_date_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_DATE_HEIGHT));
+      text_layer_set_font(s_local_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+      text_layer_set_text_alignment(s_local_date_layer, GTextAlignmentCenter);
+      top += LAYER_LOCAL_DATE_HEIGHT;
+    } else {
+      s_tz_label_layer[d] = create_text_layer(GRect(0, top, LAYER_TZ_LABEL_WIDTH, LAYER_TZ_HEIGHT));
+      text_layer_set_font(s_tz_label_layer[d], fonts_get_system_font(FONT_KEY_GOTHIC_24));
+      text_layer_set_text_alignment(s_tz_label_layer[d], GTextAlignmentLeft);
+      
+      s_tz_time_layer[d] = create_text_layer(GRect(LAYER_TZ_LABEL_WIDTH, top, LAYER_TZ_TIME_WIDTH, LAYER_TZ_HEIGHT));
+      text_layer_set_font(s_tz_time_layer[d], fonts_get_system_font(FONT_KEY_GOTHIC_24));
+      text_layer_set_text_alignment(s_tz_time_layer[d], GTextAlignmentRight);
+      
+      top += LAYER_TZ_HEIGHT;
+      d++;
     }
   }
- 
-  // Display this time on the TextLayer
-  text_layer_set_text(s_time_layer, buffer);
 }
 
 static void main_window_load(Window *window) {
-  // Create time TextLayer
-  s_time_layer = text_layer_create(GRect(5, 5, 139, 139));
-  text_layer_set_background_color(s_time_layer, GColorClear);
-  text_layer_set_text_color(s_time_layer, GColorBlack);
+  s_status_layer = create_text_layer(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
+  text_layer_set_font(s_status_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
+  text_layer_set_text_alignment(s_status_layer, GTextAlignmentCenter);
+  
+  // Clear the layers
+  for (int i = 0; i < 4; i++) {
+    s_tz_label_layer[i] = NULL;
+    s_tz_time_layer[i] = NULL;
+  }
+  s_local_time_layer = NULL;
+  s_local_date_layer = NULL;
+  
+  create_layers();
   
   // Make sure the time is displayed from the start
   update_time();
-  
-  // Improve the layout to be more like a watchface
-  text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
-  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
-
-  // Add it as a child layer to the Window's root layer
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
 }
 
 static void main_window_unload(Window *window) {
+  delete_layers();
+  delete_layer((Layer *) s_status_layer);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -391,6 +485,9 @@ static void send_tz_request() {
 
 static void init() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising...");
+  
+  // Create main Window element and assign to pointer
+  s_main_window = window_create();
   
   // Read current TZ config
   persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
@@ -424,9 +521,6 @@ static void init() {
   
   // Send a request for TZ offsets
   send_tz_request();
-  
-  // Create main Window element and assign to pointer
-  s_main_window = window_create();
 
   // Set handlers to manage the elements inside the Window
   window_set_window_handlers(s_main_window, (WindowHandlers) {
@@ -446,9 +540,6 @@ static void init() {
 static void deinit() {
   // Destroy Window
   window_destroy(s_main_window);
-
-  // Destroy TextLayer
-  text_layer_destroy(s_time_layer);
 }
 
 int main(void) {
