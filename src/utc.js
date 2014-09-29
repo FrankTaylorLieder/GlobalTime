@@ -3834,7 +3834,16 @@ Pebble.addEventListener("appmessage",
 
 Pebble.addEventListener("showConfiguration",
   function(e) {
-    Pebble.openURL("https://dl.dropboxusercontent.com/u/24358989/GlobalTime/config.html");
+    var url = "https://dl.dropboxusercontent.com/u/24358989/GlobalTime/config.html?v=1.0";
+    for (var i = 0, x = window.localStorage.length; i < x; i++) {
+      var key = window.localStorage.key(i);
+      var val = window.localStorage.getItem(key);
+      if (val !== null) {
+        url += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(val);
+      }
+    }
+    console.log("Opening configuration: " + url);
+    Pebble.openURL(url);
   }
 );
 
@@ -3843,7 +3852,12 @@ Pebble.addEventListener("webviewclosed",
     //Get JSON dictionary
     var configuration = JSON.parse(decodeURIComponent(e.response));
     console.log("Configuration window returned: " + JSON.stringify(configuration));
- 
+    
+    // Locally persist config
+    for (var key in configuration) {
+      window.localStorage.setItem(key, configuration[key]);
+    }
+     
     //Send to Pebble, persist there
     Pebble.sendAppMessage(
       {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4},

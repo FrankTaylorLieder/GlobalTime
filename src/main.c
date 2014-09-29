@@ -1,20 +1,21 @@
 #include <pebble.h>
 
 /*
- * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
- * DONE Sort timezones based on offset from localtime.
- * DONE Add current time if not one of the specified timezones
- * DONE Add current date to current time display
- * DONE Add TZ label to display (for non-local time displays)
  * TODO Limit label size
- * DONE Support <4 timezones set
- * TODO Config page, initialise to current settings
  * TODO Add battery indicator
  * TODO Add bluetooth indicator
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Pretty up display
  * TODO Reduce size of JS, and include more interesting TZs
+ * TODO Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
+ * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
+ * DONE Sort timezones based on offset from localtime.
+ * DONE Add current time if not one of the specified timezones
+ * DONE Add current date to current time display
+ * DONE Add TZ label to display (for non-local time displays)
+ * DONE Support <4 timezones set
+ * DONE Config page, initialise to current settings
  * DONE BUG: when switching to GlobalTime from World Watch, the TZs are not correctly updated. Possibly because WW sends a message we don't interpret. Partially fixed by persisting offsets, but problem is JS is not loading fast enough.
  */
   
