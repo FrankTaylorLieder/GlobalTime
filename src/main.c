@@ -493,15 +493,11 @@ static void init() {
   
   // Create main Window element and assign to pointer
   s_main_window = window_create();
+  window_set_background_color(s_main_window, GColorBlack);
   
-  ResHandle font_handle_big = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
-  s_big_font = fonts_load_custom_font(font_handle_big);
-  
-  ResHandle font_handle_medium = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_23);
-  s_medium_font = fonts_load_custom_font(font_handle_medium);
-  
-  ResHandle font_handle_small = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
-  s_small_font = fonts_load_custom_font(font_handle_small);
+  s_big_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
+  s_medium_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_BOLD_23);
+  s_small_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
   
   // Read current TZ config
   persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
