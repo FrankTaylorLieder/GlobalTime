@@ -1,6 +1,7 @@
 #include <pebble.h>
 
 /*
+ * TODO BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging?
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO Limit label size
  * TODO Add battery indicator
@@ -10,7 +11,7 @@
  * DONE Select custom fonts
  * TODO BUG unloading fonts is crashing
  * TODO Reduce size of JS, and include more interesting TZs
- * TODO Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
+ * DONE Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
  * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
  * DONE Sort timezones based on offset from localtime.
  * DONE Add current time if not one of the specified timezones
@@ -26,18 +27,25 @@
 #define KEY_TZ2 6602
 #define KEY_TZ3 6603
 #define KEY_TZ4 6604
+#define KEY_TZ5 6605
 
 // Keys for labels
 #define KEY_LABEL1 6621
 #define KEY_LABEL2 6622
 #define KEY_LABEL3 6623
 #define KEY_LABEL4 6624
+#define KEY_LABEL5 6625
 
 // Keys for timezone offsets
 #define KEY_OFFSET1 6611
 #define KEY_OFFSET2 6612
 #define KEY_OFFSET3 6613
 #define KEY_OFFSET4 6614
+#define KEY_OFFSET5 6615
+  
+#define CONFIG_SIZE (5)
+  
+#define DISPLAY_SIZE (5)
 
 // Timezone string size (max)
 #define TZ_SIZE (100)
@@ -53,8 +61,8 @@
   
 static Window *s_main_window;
 
-static TextLayer *s_tz_label_layer[4];
-static TextLayer *s_tz_time_layer[4];
+static TextLayer *s_tz_label_layer[CONFIG_SIZE];
+static TextLayer *s_tz_time_layer[CONFIG_SIZE];
 static TextLayer *s_status_layer;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
@@ -74,17 +82,14 @@ static GFont s_big_font = NULL;
 static GFont s_medium_font = NULL;
 static GFont s_small_font = NULL;
 
-// Number of configured timezones
-static int s_num_times = 4;
-
 // Offsets for configured timezones, DISPLAY_NO_DISPLAY for no display.
-static int32_t s_offset[4];
+static int32_t s_offset[CONFIG_SIZE];
 
 // Labels for configured timezones.
-static char s_label[4][LABEL_SIZE];
+static char s_label[CONFIG_SIZE][LABEL_SIZE];
 
 // Configured timezones, NULL for no display.
-static char s_tz[4][TZ_SIZE];
+static char s_tz[CONFIG_SIZE][TZ_SIZE];
 
 // Previous time we displayed.
 static time_t s_last_tick = 0;
@@ -95,7 +100,7 @@ static int s_num_display = 0;
 // Indexes into the s_tz/s_offset array,
 // DISPLAY_LOCAL_TIME for the current time,
 // DISPLAY_NO_DISPLAY for no display
-static int s_display[5];
+static int s_display[DISPLAY_SIZE];
 
 static void update_time();
 static void send_tz_request();
@@ -112,28 +117,36 @@ static void compare_swap(int index[], int i) {
                                     
 static void sort_times() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "sort_times...");
+  
+  // Determine of any of the offsets is local time,
+  // if so then we can take all 5 TZs as one will be local time.
+  int usable_tz = 4;
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    // XXX BUG? If a tz is not configured, will the offset be 0?
+    if (0 == s_offset[i]) {
+      // Found a local time, so we can use all 5 configured TZs
+      usable_tz = 5;
+      break;
+    }
+  }
+    
   // Initialise indexes to unsorted offsets.
-  int indexes[4];
-  for (int i = 0; i < 4; i++) {
+  int indexes[CONFIG_SIZE];
+  for (int i = 0; i < CONFIG_SIZE; i++) {
     indexes[i] = i;
   }
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "fresh indexes: %d %d %d %d", indexes[0], indexes[1], indexes[2], indexes[3]);
-  
   // Unrolled bubblesort offsets via indexes.
-  compare_swap(indexes, 0);
-  compare_swap(indexes, 1);
-  compare_swap(indexes, 2);
-  compare_swap(indexes, 0);
-  compare_swap(indexes, 1);
-  compare_swap(indexes, 2);
+  for (int i = 0; i < (usable_tz - 1); i++) {
+    for (int j = 0; j < (usable_tz - 1 - i); j++) {
+      compare_swap(indexes, j);
+    }
+  }
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "sorted indexes: %d %d %d %d", indexes[0], indexes[1], indexes[2], indexes[3]);
-
   // Iterate offsets (via indexes), inserting local time (replacing a TZ if needed).
   bool found_local = false;
   int d = 0;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < usable_tz; i++) {
     int offset = s_offset[indexes[i]];
     if (OFFSET_NO_DISPLAY == offset) {
       APP_LOG(APP_LOG_LEVEL_DEBUG, "NO DISPLAY");
@@ -194,6 +207,7 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
   Tuple *o2_tuple = dict_find(received, KEY_OFFSET2);
   Tuple *o3_tuple = dict_find(received, KEY_OFFSET3);
   Tuple *o4_tuple = dict_find(received, KEY_OFFSET4);
+  Tuple *o5_tuple = dict_find(received, KEY_OFFSET5);
 
   if (o1_tuple) {
     s_offset[0] = o1_tuple->value->int32;
@@ -231,16 +245,26 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 4: %ld", s_offset[3]);
   }
   
+  if (o5_tuple) {
+    s_offset[4] = o5_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET5, s_offset[4]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 5: %ld", s_offset[4]);
+  }
+  
   Tuple *tz1_tuple = dict_find(received, KEY_TZ1);
   Tuple *tz2_tuple = dict_find(received, KEY_TZ2);
   Tuple *tz3_tuple = dict_find(received, KEY_TZ3);
   Tuple *tz4_tuple = dict_find(received, KEY_TZ4);
+  Tuple *tz5_tuple = dict_find(received, KEY_TZ5);
   bool tz_set = false;
   
   if (tz1_tuple) {
     strncpy(s_tz[0], tz1_tuple->value->cstring, TZ_SIZE);
     int w = persist_write_string(KEY_TZ1, s_tz[0]);
-    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 1: %s (%d)", s_tz[0], w);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 1: %s", s_tz[0]);
     tz_set = true;
   }
   
@@ -265,10 +289,18 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     tz_set = true;
   }
   
+  if (tz5_tuple) {
+    strncpy(s_tz[4], tz5_tuple->value->cstring, TZ_SIZE);
+    persist_write_string(KEY_TZ5, s_tz[4]);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 5: %s", s_tz[4]);
+    tz_set = true;
+  }
+  
   Tuple *l1_tuple = dict_find(received, KEY_LABEL1);
   Tuple *l2_tuple = dict_find(received, KEY_LABEL2);
   Tuple *l3_tuple = dict_find(received, KEY_LABEL3);
   Tuple *l4_tuple = dict_find(received, KEY_LABEL4);
+  Tuple *l5_tuple = dict_find(received, KEY_LABEL5);
   
   if (l1_tuple) {
     strncpy(s_label[0], l1_tuple->value->cstring, LABEL_SIZE);
@@ -292,6 +324,12 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     strncpy(s_label[3], l4_tuple->value->cstring, LABEL_SIZE);
     persist_write_string(KEY_LABEL4, s_label[3]);
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 4: %s", s_label[3]);
+  }
+  
+  if (l5_tuple) {
+    strncpy(s_label[4], l5_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL5, s_label[4]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 5: %s", s_label[4]);
   }
 
   if (tz_set) {
@@ -476,13 +514,14 @@ static void send_tz_request() {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Requesting TZ offsets: %s, %s, %s, %s", s_tz[0], s_tz[1], s_tz[2], s_tz[3]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Requesting TZ offsets: %s, %s, %s, %s, %s", s_tz[0], s_tz[1], s_tz[2], s_tz[3], s_tz[4]);
 
   // Add a key-value pair
   dict_write_cstring(iter, KEY_TZ1, s_tz[0]);
   dict_write_cstring(iter, KEY_TZ2, s_tz[1]);
   dict_write_cstring(iter, KEY_TZ3, s_tz[2]);
   dict_write_cstring(iter, KEY_TZ4, s_tz[3]);
+  dict_write_cstring(iter, KEY_TZ5, s_tz[4]);
 
   // Send the message!
   app_message_outbox_send();
@@ -504,21 +543,25 @@ static void init() {
   persist_read_string(KEY_TZ2, s_tz[1], TZ_SIZE);
   persist_read_string(KEY_TZ3, s_tz[2], TZ_SIZE);
   persist_read_string(KEY_TZ4, s_tz[3], TZ_SIZE);
+  persist_read_string(KEY_TZ5, s_tz[4], TZ_SIZE);
   
   s_offset[0] = persist_read_int(KEY_OFFSET1);
   s_offset[1] = persist_read_int(KEY_OFFSET2);
   s_offset[2] = persist_read_int(KEY_OFFSET3);
   s_offset[3] = persist_read_int(KEY_OFFSET4);
+  s_offset[4] = persist_read_int(KEY_OFFSET5);
   
   persist_read_string(KEY_LABEL1, s_label[0], LABEL_SIZE);
   persist_read_string(KEY_LABEL2, s_label[1], LABEL_SIZE);
   persist_read_string(KEY_LABEL3, s_label[2], LABEL_SIZE);
   persist_read_string(KEY_LABEL4, s_label[3], LABEL_SIZE);
+  persist_read_string(KEY_LABEL5, s_label[4], LABEL_SIZE);
 
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s - %s (%ld)", s_label[0], s_tz[0], s_offset[0]);
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 2: %s - %s (%ld)", s_label[1], s_tz[1], s_offset[1]);
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 3: %s - %s (%ld)", s_label[2], s_tz[2], s_offset[2]);
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 4: %s - %s (%ld)", s_label[3], s_tz[3], s_offset[3]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 5: %s - %s (%ld)", s_label[4], s_tz[4], s_offset[4]);
   
   sort_times();
   
@@ -540,7 +583,6 @@ static void init() {
 
   // Show the Window on the watch, with animated=true
   window_stack_push(s_main_window, true);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Window pushed");
   
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);

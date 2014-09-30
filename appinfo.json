@@ -4,14 +4,17 @@
         "l2": 6622,
         "l3": 6623,
         "l4": 6624,
+        "l5": 6625,
         "offset1": 6611,
         "offset2": 6612,
         "offset3": 6613,
         "offset4": 6614,
+        "offset5": 6615,
         "tz1": 6601,
         "tz2": 6602,
         "tz3": 6603,
-        "tz4": 6604
+        "tz4": 6604,
+        "tz5": 6605
     },
     "capabilities": [
         "configurable"

@@ -3820,8 +3820,8 @@ function offset(t) {
 }
 
 function processTimezones(payload) {
-  console.log("Received TZ request: " + [payload.tz1, payload.tz2, payload.tz3, payload.tz4]);
-  var response = { offset1: offset(payload.tz1), offset2: offset(payload.tz2), offset3: offset(payload.tz3), offset4: offset(payload.tz4) };
+  console.log("Received TZ request: " + [payload.tz1, payload.tz2, payload.tz3, payload.tz4, payload.tz5]);
+  var response = { offset1: offset(payload.tz1), offset2: offset(payload.tz2), offset3: offset(payload.tz3), offset4: offset(payload.tz4), offset5: offset(payload.tz5) };
   Pebble.sendAppMessage(response);
   console.log("Response: " + response);
 }
@@ -3860,7 +3860,7 @@ Pebble.addEventListener("webviewclosed",
      
     //Send to Pebble, persist there
     Pebble.sendAppMessage(
-      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4},
+      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "tz5": configuration.tz5, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4, "l5": configuration.l5 },
       function(e) {
         console.log("Sending settings data...");
       },
