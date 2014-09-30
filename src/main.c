@@ -7,7 +7,8 @@
  * TODO Add bluetooth indicator
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * DONE Pretty up display
- * TODO Select custom fonts
+ * DONE Select custom fonts
+ * TODO BUG unloading fonts is crashing
  * TODO Reduce size of JS, and include more interesting TZs
  * TODO Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
  * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
@@ -60,14 +61,18 @@ static TextLayer *s_local_date_layer;
 
 #define LAYER_TZ_LABEL_WIDTH (84)
 #define LAYER_TZ_TIME_WIDTH (60)
-#define LAYER_TZ_HEIGHT (24)
+#define LAYER_TZ_HEIGHT (22)
 
 #define LAYER_STATUS_WIDTH (144)
 #define LAYER_STATUS_HEIGHT (12)
 
 #define LAYER_LOCAL_WIDTH (144)
-#define LAYER_LOCAL_TIME_HEIGHT (30)
-#define LAYER_LOCAL_DATE_HEIGHT (30)
+#define LAYER_LOCAL_TIME_HEIGHT (36)
+#define LAYER_LOCAL_DATE_HEIGHT (32)
+  
+static GFont s_big_font = NULL;
+static GFont s_medium_font = NULL;
+static GFont s_small_font = NULL;
 
 // Number of configured timezones
 static int s_num_times = 4;
@@ -416,21 +421,21 @@ static void create_layers() {
     
     if (DISPLAY_LOCAL_TIME == display) {
       s_local_time_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_TIME_HEIGHT));
-      text_layer_set_font(s_local_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
+      text_layer_set_font(s_local_time_layer, s_big_font);
       text_layer_set_text_alignment(s_local_time_layer, GTextAlignmentCenter);
       top += LAYER_LOCAL_TIME_HEIGHT;
       
       s_local_date_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_DATE_HEIGHT));
-      text_layer_set_font(s_local_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+      text_layer_set_font(s_local_date_layer, s_medium_font);
       text_layer_set_text_alignment(s_local_date_layer, GTextAlignmentCenter);
       top += LAYER_LOCAL_DATE_HEIGHT;
     } else {
       s_tz_label_layer[d] = create_text_layer(GRect(0, top, LAYER_TZ_LABEL_WIDTH, LAYER_TZ_HEIGHT));
-      text_layer_set_font(s_tz_label_layer[d], fonts_get_system_font(FONT_KEY_GOTHIC_24));
+      text_layer_set_font(s_tz_label_layer[d], s_small_font);
       text_layer_set_text_alignment(s_tz_label_layer[d], GTextAlignmentLeft);
       
       s_tz_time_layer[d] = create_text_layer(GRect(LAYER_TZ_LABEL_WIDTH, top, LAYER_TZ_TIME_WIDTH, LAYER_TZ_HEIGHT));
-      text_layer_set_font(s_tz_time_layer[d], fonts_get_system_font(FONT_KEY_GOTHIC_24));
+      text_layer_set_font(s_tz_time_layer[d], s_small_font);
       text_layer_set_text_alignment(s_tz_time_layer[d], GTextAlignmentRight);
       
       top += LAYER_TZ_HEIGHT;
@@ -489,6 +494,15 @@ static void init() {
   // Create main Window element and assign to pointer
   s_main_window = window_create();
   
+  ResHandle font_handle_big = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
+  s_big_font = fonts_load_custom_font(font_handle_big);
+  
+  ResHandle font_handle_medium = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_23);
+  s_medium_font = fonts_load_custom_font(font_handle_medium);
+  
+  ResHandle font_handle_small = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
+  s_small_font = fonts_load_custom_font(font_handle_small);
+  
   // Read current TZ config
   persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
   persist_read_string(KEY_TZ2, s_tz[1], TZ_SIZE);
@@ -540,6 +554,16 @@ static void init() {
 static void deinit() {
   // Destroy Window
   window_destroy(s_main_window);
+  
+  if (s_big_font) {
+    //fonts_unload_custom_font(s_big_font);
+  }
+  if (s_medium_font) {
+    //fonts_unload_custom_font(s_medium_font);
+  }
+  if (s_small_font) {
+    //fonts_unload_custom_font(s_small_font);
+  }
 }
 
 int main(void) {

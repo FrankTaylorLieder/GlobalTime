@@ -20,7 +20,23 @@
     "longName": "GlobalTime",
     "projectType": "native",
     "resources": {
-        "media": []
+        "media": [
+            {
+                "file": "fonts/Comfortaa-Regular.ttf",
+                "name": "FONT_COMFORTAA_REGULAR_15",
+                "type": "font"
+            },
+            {
+                "file": "fonts/Comfortaa-Bold.ttf",
+                "name": "FONT_COMFORTAA_BOLD_23",
+                "type": "font"
+            },
+            {
+                "file": "fonts/Comfortaa-Bold.ttf",
+                "name": "FONT_COMFORTAA_BOLD_33",
+                "type": "font"
+            }
+        ]
     },
     "shortName": "GlobalTime",
     "uuid": "0b128b72-2278-42fd-8dbd-402e7da5bcc5",
