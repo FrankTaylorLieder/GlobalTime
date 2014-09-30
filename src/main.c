@@ -403,8 +403,8 @@ static void delete_layers() {
 static TextLayer *create_text_layer(GRect rect) {
   TextLayer *l = text_layer_create(rect);
 
-  text_layer_set_background_color(l, GColorClear);
-  text_layer_set_text_color(l, GColorBlack);
+  text_layer_set_background_color(l, GColorBlack);
+  text_layer_set_text_color(l, GColorClear);
   
   layer_add_child(window_get_root_layer(s_main_window), (Layer *) l);
 
