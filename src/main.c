@@ -440,6 +440,9 @@ static void delete_layers() {
 
 static TextLayer *create_text_layer(GRect rect) {
   TextLayer *l = text_layer_create(rect);
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Allocated: %p", l);
+
 
   text_layer_set_background_color(l, GColorBlack);
   text_layer_set_text_color(l, GColorClear);
@@ -534,9 +537,14 @@ static void init() {
   s_main_window = window_create();
   window_set_background_color(s_main_window, GColorBlack);
   
-  s_big_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
-  s_medium_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_BOLD_23);
-  s_small_font = fonts_load_custom_font(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
+  ResHandle big_handle = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
+  s_big_font = fonts_load_custom_font(big_handle);
+  
+  ResHandle medium_handle = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_23);
+  s_medium_font = fonts_load_custom_font(medium_handle);
+  
+  ResHandle small_handle = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
+  s_small_font = fonts_load_custom_font(small_handle);
   
   // Read current TZ config
   persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
@@ -594,13 +602,13 @@ static void deinit() {
   window_destroy(s_main_window);
   
   if (s_big_font) {
-    //fonts_unload_custom_font(s_big_font);
+    fonts_unload_custom_font(s_big_font);
   }
   if (s_medium_font) {
-    //fonts_unload_custom_font(s_medium_font);
+    fonts_unload_custom_font(s_medium_font);
   }
   if (s_small_font) {
-    //fonts_unload_custom_font(s_small_font);
+    fonts_unload_custom_font(s_small_font);
   }
 }
 
