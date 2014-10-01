@@ -4,7 +4,7 @@
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO Add battery indicator
  * TODO Add bluetooth indicator
- * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
+ * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Reduce size of JS, and include more interesting TZs
  * DONE BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging? Or since move to SDK 2.6? Crash was due to logging causing the app to take too long terminating.
  * DONE Limit label size (and TZ size)
@@ -68,6 +68,9 @@ static TextLayer *s_status_layer = NULL;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
 
+// Text storage for TZ label display
+static char s_tz_label_text[4][LABEL_SIZE];
+
 #define LAYER_TZ_LABEL_WIDTH (84)
 #define LAYER_TZ_TIME_WIDTH (60)
 #define LAYER_TZ_HEIGHT (22)
@@ -97,6 +100,9 @@ static time_t s_last_tick = 0;
 
 // Number of displayed timezones
 static int s_num_display = 0;
+
+// Track whether we've checked the offsets since the last change
+static bool s_offsets_up_to_date = false;
 
 // Indexes into the s_tz/s_offset array,
 // DISPLAY_LOCAL_TIME for the current time,
@@ -336,6 +342,7 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     send_tz_request();
   } else {
     sort_times();
+    s_offsets_up_to_date = true;
   }
   
   update_time();
@@ -363,8 +370,10 @@ static void update_time() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Localtime time: %ld", now);
     
   int32_t difference = now - s_last_tick;
-  if (difference > 360 || difference < -360) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Difference is more than 6 minutes, requesting TZ information again...");
+  if (difference > 360 || difference < -360 || !s_offsets_up_to_date) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Difference (%ld) is more than 6 minutes, or offsets out of date (%s), requesting TZ information again...",
+            difference, s_offsets_up_to_date ? "true" : "false");
+    s_offsets_up_to_date = false;
     send_tz_request();
   }
   s_last_tick = now;
@@ -398,7 +407,12 @@ static void update_time() {
       strftime(s_local_date, sizeof(s_local_date), "%a, %d %b", tick_time);
       text_layer_set_text(s_local_date_layer, s_local_date);
     } else {
-      text_layer_set_text(s_tz_label_layer[d], s_label[display]);
+      s_tz_label_text[d][0] = '\0';
+      if (!s_offsets_up_to_date) {
+        strncat(s_tz_label_text[d], "?", 1);
+      }
+      strncat(s_tz_label_text[d], s_label[display], LABEL_SIZE - 1);
+      text_layer_set_text(s_tz_label_layer[d], s_tz_label_text[d]);
       
       strncpy(s_tz_time[d], tt, sizeof(s_tz_time[d]));
       text_layer_set_text(s_tz_time_layer[d], s_tz_time[d]);
