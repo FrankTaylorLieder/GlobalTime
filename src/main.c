@@ -1,16 +1,16 @@
 #include <pebble.h>
 
 /*
- * TODO BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging?
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
- * TODO Limit label size
  * TODO Add battery indicator
  * TODO Add bluetooth indicator
  * TODO Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
+ * TODO Reduce size of JS, and include more interesting TZs
+ * DONE BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging? Or since move to SDK 2.6? Crash was due to logging causing the app to take too long terminating.
+ * DONE Limit label size (and TZ size)
  * DONE Pretty up display
  * DONE Select custom fonts
- * TODO BUG unloading fonts is crashing
- * TODO Reduce size of JS, and include more interesting TZs
+ * DONE BUG unloading fonts is crashing
  * DONE Allow 5 TZ to be configured, last one is optional if local time is not a configured TZ
  * DONE persist current localtime/TZ offsets locally - so that the watch can start if not connected to the phone
  * DONE Sort timezones based on offset from localtime.
@@ -51,7 +51,7 @@
 #define TZ_SIZE (100)
   
 // Label string size (max)
-#define LABEL_SIZE (100)
+#define LABEL_SIZE (50)
   
 // Display the local time
 #define DISPLAY_LOCAL_TIME (-1)
@@ -60,6 +60,7 @@
 #define OFFSET_NO_DISPLAY (-2000)
   
 static Window *s_main_window;
+static char build_time[100];
 
 static TextLayer *s_tz_label_layer[4];
 static TextLayer *s_tz_time_layer[4];
@@ -122,7 +123,6 @@ static void sort_times() {
   // if so then we can take all 5 TZs as one will be local time.
   int usable_tz = 4;
   for (int i = 0; i < CONFIG_SIZE; i++) {
-    // XXX BUG? If a tz is not configured, will the offset be 0?
     if (0 == s_offset[i]) {
       // Found a local time, so we can use all 5 configured TZs
       usable_tz = 5;
@@ -263,7 +263,7 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
   
   if (tz1_tuple) {
     strncpy(s_tz[0], tz1_tuple->value->cstring, TZ_SIZE);
-    int w = persist_write_string(KEY_TZ1, s_tz[0]);
+    persist_write_string(KEY_TZ1, s_tz[0]);
     APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 1: %s", s_tz[0]);
     tz_set = true;
   }
@@ -410,7 +410,7 @@ static void update_time() {
 
 static void delete_layer(Layer *layer) {
   if (layer) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing: %p", layer);
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing: %p", layer);
     layer_remove_from_parent((Layer *) layer);
     layer_destroy(layer);
   }
@@ -439,8 +439,7 @@ static void delete_layers() {
 static TextLayer *create_text_layer(GRect rect) {
   TextLayer *l = text_layer_create(rect);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Allocated: %p", l);
-
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "Allocated: %p", l);
 
   text_layer_set_background_color(l, GColorBlack);
   text_layer_set_text_color(l, GColorClear);
@@ -488,16 +487,6 @@ static void main_window_load(Window *window) {
   text_layer_set_font(s_status_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
   text_layer_set_text_alignment(s_status_layer, GTextAlignmentCenter);
   
-  // Clear the layers
-  //for (int i = 0; i < 4; i++) {
-  //  s_tz_label_layer[i] = NULL;
-  //  s_tz_time_layer[i] = NULL;
-  //}
-  //s_local_time_layer = NULL;
-  //s_local_date_layer = NULL;
-  
-  //create_layers();
-  
   // Make sure the time is displayed from the start
   update_time();
 }
@@ -529,7 +518,7 @@ static void send_tz_request() {
 }
 
 static void init() {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising... v1");
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising... build: %s", build_time);
   
   // Create main Window element and assign to pointer
   s_main_window = window_create();
@@ -592,7 +581,6 @@ static void init() {
   
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  // XXX tick_timer_service_subscribe(SECOND_UNIT, tick_handler);
 }
 
 static void deinit() {
@@ -611,6 +599,13 @@ static void deinit() {
 }
 
 int main(void) {
+  build_time[0] = 0;
+  int s = sizeof(build_time) - 1;
+  strncat(build_time, __DATE__, s);
+  strncat(build_time, "/", 1);
+  s -= strlen(build_time);
+  strncat(build_time, __TIME__, s);
+  
   init();
   app_event_loop();
   deinit();
