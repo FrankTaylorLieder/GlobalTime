@@ -61,9 +61,9 @@
   
 static Window *s_main_window;
 
-static TextLayer *s_tz_label_layer[CONFIG_SIZE];
-static TextLayer *s_tz_time_layer[CONFIG_SIZE];
-static TextLayer *s_status_layer;
+static TextLayer *s_tz_label_layer[4];
+static TextLayer *s_tz_time_layer[4];
+static TextLayer *s_status_layer = NULL;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
 
@@ -411,6 +411,7 @@ static void update_time() {
 static void delete_layer(Layer *layer) {
   if (layer) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing: %p", layer);
+    layer_remove_from_parent((Layer *) layer);
     layer_destroy(layer);
   }
 }
@@ -418,9 +419,6 @@ static void delete_layer(Layer *layer) {
 static void delete_layers() {
   // Null the layers
   for (int i = 0; i < 4; i++) {
-    layer_remove_from_parent((Layer *) s_tz_label_layer[i]);
-    layer_remove_from_parent((Layer *) s_tz_time_layer[i]);
-    
     delete_layer((Layer *) s_tz_label_layer[i]);
     delete_layer((Layer *) s_tz_time_layer[i]);
     
@@ -491,14 +489,14 @@ static void main_window_load(Window *window) {
   text_layer_set_text_alignment(s_status_layer, GTextAlignmentCenter);
   
   // Clear the layers
-  for (int i = 0; i < 4; i++) {
-    s_tz_label_layer[i] = NULL;
-    s_tz_time_layer[i] = NULL;
-  }
-  s_local_time_layer = NULL;
-  s_local_date_layer = NULL;
+  //for (int i = 0; i < 4; i++) {
+  //  s_tz_label_layer[i] = NULL;
+  //  s_tz_time_layer[i] = NULL;
+  //}
+  //s_local_time_layer = NULL;
+  //s_local_date_layer = NULL;
   
-  create_layers();
+  //create_layers();
   
   // Make sure the time is displayed from the start
   update_time();
@@ -531,7 +529,7 @@ static void send_tz_request() {
 }
 
 static void init() {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising...");
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising... v1");
   
   // Create main Window element and assign to pointer
   s_main_window = window_create();
