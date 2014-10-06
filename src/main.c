@@ -2,8 +2,9 @@
 
 /*
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
- * TODO Add battery indicator
- * TODO Add bluetooth indicator
+ * PROGRESSING Add battery indicator
+ * PROGRESSING Add bluetooth indicator
+ * TODO BUG Elipsis for label truncation does not work in current font
  * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Reduce size of JS, and include more interesting TZs
  * DONE BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging? Or since move to SDK 2.6? Crash was due to logging causing the app to take too long terminating.
@@ -71,12 +72,12 @@ static TextLayer *s_local_date_layer;
 // Text storage for TZ label display
 static char s_tz_label_text[4][LABEL_SIZE];
 
-#define LAYER_TZ_LABEL_WIDTH (84)
-#define LAYER_TZ_TIME_WIDTH (60)
-#define LAYER_TZ_HEIGHT (22)
+#define LAYER_TZ_LABEL_WIDTH (104)
+#define LAYER_TZ_TIME_WIDTH (40)
+#define LAYER_TZ_HEIGHT (21)
 
 #define LAYER_STATUS_WIDTH (144)
-#define LAYER_STATUS_HEIGHT (12)
+#define LAYER_STATUS_HEIGHT (16)
 
 #define LAYER_LOCAL_WIDTH (144)
 #define LAYER_LOCAL_TIME_HEIGHT (36)
