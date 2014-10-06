@@ -1,12 +1,12 @@
 #include <pebble.h>
 
 /*
- * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
- * PROGRESSING Add battery indicator
- * PROGRESSING Add bluetooth indicator
- * TODO BUG Elipsis for label truncation does not work in current font
- * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * TODO Reduce size of JS, and include more interesting TZs
+ * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
+ * TODO BUG Elipsis for label truncation does not work in current font
+ * DONE Add battery indicator
+ * DONE Add bluetooth indicator
+ * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
  * DONE BUG: Sometimes crashes on de-init (since adding bonus TZ support), only when logging? Or since move to SDK 2.6? Crash was due to logging causing the app to take too long terminating.
  * DONE Limit label size (and TZ size)
  * DONE Pretty up display
@@ -65,7 +65,8 @@ static char build_time[100];
 
 static TextLayer *s_tz_label_layer[4];
 static TextLayer *s_tz_time_layer[4];
-static TextLayer *s_status_layer = NULL;
+static BitmapLayer *s_status_bt_layer = NULL;
+static BitmapLayer *s_status_battery_layer = NULL;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
 
@@ -76,7 +77,8 @@ static char s_tz_label_text[4][LABEL_SIZE];
 #define LAYER_TZ_TIME_WIDTH (40)
 #define LAYER_TZ_HEIGHT (21)
 
-#define LAYER_STATUS_WIDTH (144)
+#define LAYER_STATUS_WIDTH (67)
+#define LAYER_STATUS_GAP (10)
 #define LAYER_STATUS_HEIGHT (16)
 
 #define LAYER_LOCAL_WIDTH (144)
@@ -86,6 +88,10 @@ static char s_tz_label_text[4][LABEL_SIZE];
 static GFont s_big_font = NULL;
 static GFont s_medium_font = NULL;
 static GFont s_small_font = NULL;
+
+static GBitmap *s_bmp_bt = NULL;
+static GBitmap *s_bmp_nobt = NULL;
+static GBitmap *s_bmp_battery[10];
 
 // Offsets for configured timezones, DISPLAY_NO_DISPLAY for no display.
 static int32_t s_offset[CONFIG_SIZE];
@@ -430,18 +436,19 @@ static void update_time() {
 }
 
 static void update_status() {
-  static char s_status_text[20];
-  
   BatteryChargeState bcs = battery_state_service_peek();
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Battery state: %u%%%s%s", bcs.charge_percent,
           bcs.is_charging ? " charging" : "", bcs.is_plugged ? " plugged" : "");
   
+  int i = bcs.charge_percent / 10;
+  if (i > 9) i = 9;
+  if (i < 0) i = 0;
+  bitmap_layer_set_bitmap(s_status_battery_layer, s_bmp_battery[i]);
+  
   bool bt_connected = bluetooth_connection_service_peek();
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Bluetooth %s", bt_connected ? "connected" : "disconnected");
   
-  snprintf(s_status_text, sizeof(s_status_text), "%u%%%s - %s", bcs.charge_percent,
-           bcs.is_charging ? " charging" : "", bt_connected ? "connected" : "disconnected");
-  text_layer_set_text(s_status_layer, s_status_text);
+  bitmap_layer_set_bitmap(s_status_bt_layer, bt_connected ? s_bmp_bt : s_bmp_nobt);
   
   if (s_last_bt_connected != bt_connected) {
     vibes_double_pulse();
@@ -524,17 +531,25 @@ static void create_layers() {
 }
 
 static void main_window_load(Window *window) {
-  s_status_layer = create_text_layer(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
-  text_layer_set_font(s_status_layer, s_small_font);
-  text_layer_set_text_alignment(s_status_layer, GTextAlignmentCenter);
+  s_status_bt_layer = bitmap_layer_create(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
+  bitmap_layer_set_alignment(s_status_bt_layer, GAlignRight);
+  bitmap_layer_set_compositing_mode(s_status_bt_layer, GCompOpAssignInverted);
+  layer_add_child(window_get_root_layer(window), (Layer *) s_status_bt_layer);
   
+  s_status_battery_layer = bitmap_layer_create(GRect(LAYER_STATUS_WIDTH + LAYER_STATUS_GAP, 0,
+                                                     LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));\
+  bitmap_layer_set_alignment(s_status_battery_layer, GAlignLeft);
+  bitmap_layer_set_compositing_mode(s_status_battery_layer, GCompOpAssignInverted);
+  layer_add_child(window_get_root_layer(window), (Layer *) s_status_battery_layer);
+
   // Make sure the time is displayed from the start
   update_time();
 }
 
 static void main_window_unload(Window *window) {
   delete_layers();
-  delete_layer((Layer *) s_status_layer);
+  delete_layer((Layer *) s_status_bt_layer);
+  delete_layer((Layer *) s_status_battery_layer);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -577,6 +592,19 @@ static void init() {
   
   ResHandle small_handle = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_REGULAR_15);
   s_small_font = fonts_load_custom_font(small_handle);
+  
+  s_bmp_bt = gbitmap_create_with_resource(RESOURCE_ID_BMP_BT);
+  s_bmp_nobt = gbitmap_create_with_resource(RESOURCE_ID_BMP_NOBT);
+  s_bmp_battery[0] = gbitmap_create_with_resource(RESOURCE_ID_BMP_00);
+  s_bmp_battery[1] = gbitmap_create_with_resource(RESOURCE_ID_BMP_10);
+  s_bmp_battery[2] = gbitmap_create_with_resource(RESOURCE_ID_BMP_20);
+  s_bmp_battery[3] = gbitmap_create_with_resource(RESOURCE_ID_BMP_30);
+  s_bmp_battery[4] = gbitmap_create_with_resource(RESOURCE_ID_BMP_40);
+  s_bmp_battery[5] = gbitmap_create_with_resource(RESOURCE_ID_BMP_50);
+  s_bmp_battery[6] = gbitmap_create_with_resource(RESOURCE_ID_BMP_60);
+  s_bmp_battery[7] = gbitmap_create_with_resource(RESOURCE_ID_BMP_70);
+  s_bmp_battery[8] = gbitmap_create_with_resource(RESOURCE_ID_BMP_80);
+  s_bmp_battery[9] = gbitmap_create_with_resource(RESOURCE_ID_BMP_90);
   
   // Read current TZ config
   persist_read_string(KEY_TZ1, s_tz[0], TZ_SIZE);
@@ -643,6 +671,12 @@ static void deinit() {
   }
   if (s_small_font) {
     fonts_unload_custom_font(s_small_font);
+  }
+  
+  if (s_bmp_bt) gbitmap_destroy(s_bmp_bt);
+  if (s_bmp_nobt) gbitmap_destroy(s_bmp_nobt);
+  for (int i = 0; i < 10; i++) {
+    if (s_bmp_battery[i]) gbitmap_destroy(s_bmp_battery[i]);
   }
 }
 
