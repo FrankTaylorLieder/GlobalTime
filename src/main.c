@@ -109,9 +109,13 @@ static bool s_offsets_up_to_date = false;
 // DISPLAY_NO_DISPLAY for no display
 static int s_display[DISPLAY_SIZE];
 
+// Remember the last BT connection state.
+static bool s_last_bt_connected = true;
+
 static void update_time();
 static void send_tz_request();
 static void create_layers();
+static void update_status();
 
 // Compare and swap indexes based on the offsets they refer to.
 static void compare_swap(int index[], int i) {
@@ -418,8 +422,30 @@ static void update_time() {
       text_layer_set_text(s_tz_time_layer[d], s_tz_time[d]);
               
       d++;
-    }  
+    }    
   }
+  
+  update_status();
+}
+
+static void update_status() {
+  static char s_status_text[20];
+  
+  BatteryChargeState bcs = battery_state_service_peek();
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Battery state: %u%%%s%s", bcs.charge_percent,
+          bcs.is_charging ? " charging" : "", bcs.is_plugged ? " plugged" : "");
+  
+  bool bt_connected = bluetooth_connection_service_peek();
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Bluetooth %s", bt_connected ? "connected" : "disconnected");
+  
+  snprintf(s_status_text, sizeof(s_status_text), "%u%%%s - %s", bcs.charge_percent,
+           bcs.is_charging ? " charging" : "", bt_connected ? "connected" : "disconnected");
+  text_layer_set_text(s_status_layer, s_status_text);
+  
+  if (s_last_bt_connected != bt_connected) {
+    vibes_double_pulse();
+  }
+  s_last_bt_connected = bt_connected;
 }
 
 static void delete_layer(Layer *layer) {
@@ -498,7 +524,7 @@ static void create_layers() {
 
 static void main_window_load(Window *window) {
   s_status_layer = create_text_layer(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
-  text_layer_set_font(s_status_layer, fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21));
+  text_layer_set_font(s_status_layer, s_small_font);
   text_layer_set_text_alignment(s_status_layer, GTextAlignmentCenter);
   
   // Make sure the time is displayed from the start
@@ -529,6 +555,10 @@ static void send_tz_request() {
 
   // Send the message!
   app_message_outbox_send();
+}
+
+static void bluetooth_connection_callback(bool connected) {
+  update_status();
 }
 
 static void init() {
@@ -595,6 +625,9 @@ static void init() {
   
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
+  
+  // Register for bluetooth status changes
+  bluetooth_connection_service_subscribe(bluetooth_connection_callback);
 }
 
 static void deinit() {
