@@ -85,16 +85,19 @@
                 "type": "png"
             },
             {
+                "compatibility": "2.7",
                 "file": "fonts/Comfortaa-Bold.ttf",
                 "name": "FONT_COMFORTAA_BOLD_23",
                 "type": "font"
             },
             {
+                "compatibility": "2.7",
                 "file": "fonts/Comfortaa-Bold.ttf",
                 "name": "FONT_COMFORTAA_BOLD_33",
                 "type": "font"
             },
             {
+                "compatibility": "2.7",
                 "file": "fonts/Comfortaa-Regular.ttf",
                 "name": "FONT_COMFORTAA_REGULAR_15",
                 "type": "font"
