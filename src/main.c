@@ -4,6 +4,8 @@
  * TODO Reduce size of JS, and include more interesting TZs
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
+ * TODO Show up to 8 TZs on a second screen when watch is shaken
+ * TODO Show charging symbol
  * DONE Add battery indicator
  * DONE Add bluetooth indicator
  * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
@@ -29,6 +31,9 @@
 #define KEY_TZ3 6603
 #define KEY_TZ4 6604
 #define KEY_TZ5 6605
+#define KEY_TZ6 6606
+#define KEY_TZ7 6607
+#define KEY_TZ8 6608
 
 // Keys for labels
 #define KEY_LABEL1 6621
@@ -36,6 +41,9 @@
 #define KEY_LABEL3 6623
 #define KEY_LABEL4 6624
 #define KEY_LABEL5 6625
+#define KEY_LABEL6 6626
+#define KEY_LABEL7 6627
+#define KEY_LABEL8 6628
 
 // Keys for timezone offsets
 #define KEY_OFFSET1 6611
@@ -43,8 +51,11 @@
 #define KEY_OFFSET3 6613
 #define KEY_OFFSET4 6614
 #define KEY_OFFSET5 6615
+#define KEY_OFFSET6 6616
+#define KEY_OFFSET7 6617
+#define KEY_OFFSET8 6618
   
-#define CONFIG_SIZE (5)
+#define CONFIG_SIZE (8)
   
 #define DISPLAY_SIZE (5)
 
@@ -153,7 +164,7 @@ static void sort_times() {
     indexes[i] = i;
   }
   
-  // Unrolled bubblesort offsets via indexes.
+  // Bubblesort offsets via indexes.
   for (int i = 0; i < (usable_tz - 1); i++) {
     for (int j = 0; j < (usable_tz - 1 - i); j++) {
       compare_swap(indexes, j);
@@ -225,6 +236,9 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
   Tuple *o3_tuple = dict_find(received, KEY_OFFSET3);
   Tuple *o4_tuple = dict_find(received, KEY_OFFSET4);
   Tuple *o5_tuple = dict_find(received, KEY_OFFSET5);
+  Tuple *o6_tuple = dict_find(received, KEY_OFFSET6);
+  Tuple *o7_tuple = dict_find(received, KEY_OFFSET7);
+  Tuple *o8_tuple = dict_find(received, KEY_OFFSET8);
 
   if (o1_tuple) {
     s_offset[0] = o1_tuple->value->int32;
@@ -271,11 +285,42 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 5: %ld", s_offset[4]);
   }
   
+  if (o6_tuple) {
+    s_offset[5] = o6_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET6, s_offset[5]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 6: %ld", s_offset[5]);
+  }
+  
+  if (o7_tuple) {
+    s_offset[6] = o7_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET7, s_offset[6]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 7: %ld", s_offset[6]);
+  }
+  
+  if (o8_tuple) {
+    s_offset[7] = o8_tuple->value->int32;
+    status_t s = persist_write_int(KEY_OFFSET8, s_offset[7]);
+    if (s != S_SUCCESS) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "Failed to remember TZ offset: %ld", s);
+    }
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Offset 8: %ld", s_offset[7]);
+  }
+  
+  
   Tuple *tz1_tuple = dict_find(received, KEY_TZ1);
   Tuple *tz2_tuple = dict_find(received, KEY_TZ2);
   Tuple *tz3_tuple = dict_find(received, KEY_TZ3);
   Tuple *tz4_tuple = dict_find(received, KEY_TZ4);
   Tuple *tz5_tuple = dict_find(received, KEY_TZ5);
+  Tuple *tz6_tuple = dict_find(received, KEY_TZ6);
+  Tuple *tz7_tuple = dict_find(received, KEY_TZ7);
+  Tuple *tz8_tuple = dict_find(received, KEY_TZ8);
   bool tz_set = false;
   
   if (tz1_tuple) {
@@ -313,11 +358,35 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     tz_set = true;
   }
   
+  if (tz6_tuple) {
+    strncpy(s_tz[5], tz6_tuple->value->cstring, TZ_SIZE);
+    persist_write_string(KEY_TZ6, s_tz[5]);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 6: %s", s_tz[5]);
+    tz_set = true;
+  }
+  
+  if (tz7_tuple) {
+    strncpy(s_tz[6], tz7_tuple->value->cstring, TZ_SIZE);
+    persist_write_string(KEY_TZ7, s_tz[6]);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 7: %s", s_tz[6]);
+    tz_set = true;
+  }
+  
+  if (tz8_tuple) {
+    strncpy(s_tz[7], tz8_tuple->value->cstring, TZ_SIZE);
+    persist_write_string(KEY_TZ8, s_tz[7]);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Configuration: TZ 8: %s", s_tz[7]);
+    tz_set = true;
+  }
+  
   Tuple *l1_tuple = dict_find(received, KEY_LABEL1);
   Tuple *l2_tuple = dict_find(received, KEY_LABEL2);
   Tuple *l3_tuple = dict_find(received, KEY_LABEL3);
   Tuple *l4_tuple = dict_find(received, KEY_LABEL4);
   Tuple *l5_tuple = dict_find(received, KEY_LABEL5);
+  Tuple *l6_tuple = dict_find(received, KEY_LABEL6);
+  Tuple *l7_tuple = dict_find(received, KEY_LABEL7);
+  Tuple *l8_tuple = dict_find(received, KEY_LABEL8);
   
   if (l1_tuple) {
     strncpy(s_label[0], l1_tuple->value->cstring, LABEL_SIZE);
@@ -347,6 +416,24 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
     strncpy(s_label[4], l5_tuple->value->cstring, LABEL_SIZE);
     persist_write_string(KEY_LABEL5, s_label[4]);
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 5: %s", s_label[4]);
+  }
+  
+  if (l6_tuple) {
+    strncpy(s_label[5], l6_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL6, s_label[5]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 6: %s", s_label[5]);
+  }
+  
+  if (l7_tuple) {
+    strncpy(s_label[6], l7_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL7, s_label[6]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 7: %s", s_label[6]);
+  }
+  
+  if (l8_tuple) {
+    strncpy(s_label[7], l8_tuple->value->cstring, LABEL_SIZE);
+    persist_write_string(KEY_LABEL8, s_label[7]);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Configuration: LABEL 8: %s", s_label[7]);
   }
 
   if (tz_set) {

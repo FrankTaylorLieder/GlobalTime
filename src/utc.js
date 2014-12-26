@@ -3820,8 +3820,8 @@ function offset(t) {
 }
 
 function processTimezones(payload) {
-  console.log("Received TZ request: " + [payload.tz1, payload.tz2, payload.tz3, payload.tz4, payload.tz5]);
-  var response = { offset1: offset(payload.tz1), offset2: offset(payload.tz2), offset3: offset(payload.tz3), offset4: offset(payload.tz4), offset5: offset(payload.tz5) };
+  console.log("Received TZ request: " + [payload.tz1, payload.tz2, payload.tz3, payload.tz4, payload.tz5, payload.tz6, payload.tz7, payload.tz8]);
+  var response = { offset1: offset(payload.tz1), offset2: offset(payload.tz2), offset3: offset(payload.tz3), offset4: offset(payload.tz4), offset5: offset(payload.tz5), offset6: offset(payload.tz6), offset7: offset(payload.tz7), offset8: offset(payload.tz8) };
   Pebble.sendAppMessage(response);
   console.log("Response: " + response);
 }
@@ -3834,7 +3834,7 @@ Pebble.addEventListener("appmessage",
 
 Pebble.addEventListener("showConfiguration",
   function(e) {
-    var url = "https://dl.dropboxusercontent.com/u/24358989/GlobalTime/config.html?v=1.0";
+    var url = "https://dl.dropboxusercontent.com/u/24358989/GlobalTime/config2.html?v=1.0";
     for (var i = 0, x = window.localStorage.length; i < x; i++) {
       var key = window.localStorage.key(i);
       var val = window.localStorage.getItem(key);
@@ -3858,9 +3858,9 @@ Pebble.addEventListener("webviewclosed",
       window.localStorage.setItem(key, configuration[key]);
     }
      
-    //Send to Pebble, persist there
+    // Send to Pebble, persist there
     Pebble.sendAppMessage(
-      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "tz5": configuration.tz5, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4, "l5": configuration.l5 },
+      {"tz1": configuration.tz1, "tz2": configuration.tz2, "tz3": configuration.tz3, "tz4": configuration.tz4, "tz5": configuration.tz5, "tz6": configuration.tz6, "tz7": configuration.tz7, "tz8": configuration.tz8, "l1": configuration.l1, "l2": configuration.l2, "l3": configuration.l3, "l4": configuration.l4, "l5": configuration.l5, "l6": configuration.l6, "l7": configuration.l7, "l8": configuration.l8 },
       function(e) {
         console.log("Sending settings data...");
       },
