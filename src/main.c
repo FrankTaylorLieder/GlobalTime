@@ -1,11 +1,13 @@
 #include <pebble.h>
 
 /*
- * TODO Reduce size of JS, and include more interesting TZs
+ * DONE Reduce size of JS, and include more interesting TZs
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
- * TODO Show up to 8 TZs on a second screen when watch is shaken
+ * DONE Show up to 8 TZs on a second screen when watch is shaken
+ * TODO Confirm config of less than 8 TZ works with popup
  * TODO Show charging symbol
+ * TODO Don't listen for taps if there are too few TZs
  * DONE Add battery indicator
  * DONE Add bluetooth indicator
  * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
@@ -71,7 +73,11 @@
 // Don't display this time
 #define OFFSET_NO_DISPLAY (-2000)
   
+// Popup window time
+#define POPUP_TIMEOUT_MS (5000)
+  
 static Window *s_main_window;
+static Window *s_popup_window;
 static char build_time[100];
 
 static TextLayer *s_tz_label_layer[4];
@@ -83,6 +89,11 @@ static TextLayer *s_local_date_layer;
 
 // Text storage for TZ label display
 static char s_tz_label_text[4][LABEL_SIZE];
+
+// Popup data
+static TextLayer *s_popup_label_layer[CONFIG_SIZE];
+static TextLayer *s_popup_time_layer[CONFIG_SIZE];
+static char s_popup_label_text[CONFIG_SIZE][LABEL_SIZE];
 
 #define LAYER_TZ_LABEL_WIDTH (104)
 #define LAYER_TZ_TIME_WIDTH (40)
@@ -127,12 +138,19 @@ static bool s_offsets_up_to_date = false;
 // DISPLAY_NO_DISPLAY for no display
 static int s_display[DISPLAY_SIZE];
 
+// Indexes into s_tz/s_offset array for popup display.
+static int s_p_display[CONFIG_SIZE];
+
 // Remember the last BT connection state.
 static bool s_last_bt_connected = true;
+
+// Popup control
+static bool s_popup_open = false;
 
 static void update_time();
 static void send_tz_request();
 static void create_layers();
+static void create_popup_layers();
 static void update_status();
 
 // Compare and swap indexes based on the offsets they refer to.
@@ -225,6 +243,27 @@ static void sort_times() {
   }
   
   create_layers();
+
+  // Handle popup display
+  // Initialise indexes to unsorted offsets.
+  int pindexes[CONFIG_SIZE];
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    pindexes[i] = i;
+  }
+  
+  // Bubblesort offsets via indexes.
+  for (int i = 0; i < (CONFIG_SIZE - 1); i++) {
+    for (int j = 0; j < (CONFIG_SIZE - 1 - i); j++) {
+      compare_swap(pindexes, j);
+    }
+  }
+  
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup: %d", pindexes[i]);
+    s_p_display[i] = pindexes[i];
+  }
+  
+  create_popup_layers();
   
   APP_LOG(APP_LOG_LEVEL_DEBUG, "...sort_times");
 }
@@ -446,12 +485,12 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
   update_time();
 }
 
-static void add_line(char *buffer, char *additional_line, bool first_line) {
-  if (!first_line) {
-    strcat(buffer, "\n");
-  }
-  strcat(buffer, additional_line);
-}
+// static void add_line(char *buffer, char *additional_line, bool first_line) {
+//   if (!first_line) {
+//     strcat(buffer, "\n");
+//   }
+//   strcat(buffer, additional_line);
+// }
 
 static void update_time() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "UpdateTime...");
@@ -543,6 +582,61 @@ static void update_status() {
   s_last_bt_connected = bt_connected;
 }
 
+static void update_popup_time() {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "update_popup_time...");
+  
+  // Create long lived buffers
+  static char s_popup_time[CONFIG_SIZE][20];
+  char tt[20];
+
+  // Get a tm structure
+  time_t now;
+  time(&now);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Localtime time: %ld", now);
+    
+  int32_t difference = now - s_last_tick;
+  if (difference > 360 || difference < -360 || !s_offsets_up_to_date) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Difference (%ld) is more than 6 minutes, or offsets out of date (%s), requesting TZ information again...",
+            difference, s_offsets_up_to_date ? "true" : "false");
+    s_offsets_up_to_date = false;
+    send_tz_request();
+  }
+  s_last_tick = now;
+
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    time_t temp = now;
+    
+    int display = s_p_display[i];
+    int offset = s_offset[display];
+
+    // Apply TZ offset
+    temp += offset * 60;
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Display %d time: %ld (%d)", i, temp, offset);
+
+    struct tm *tick_time = localtime(&temp);
+    
+    // Write the current hours and minutes into the buffer
+    if (clock_is_24h_style() == true) {
+      // Use 24 hour format
+      strftime(tt, sizeof("00:00"), "%H:%M", tick_time);
+    } else {
+      // Use 12 hour format
+      strftime(tt, sizeof("00:00"), "%I:%M", tick_time);
+    }
+    
+
+      s_popup_label_text[i][0] = '\0';
+      if (!s_offsets_up_to_date) {
+        strncat(s_popup_label_text[i], "?", 1);
+      }
+      strncat(s_popup_label_text[i], s_label[display], LABEL_SIZE - 1);
+      text_layer_set_text(s_popup_label_layer[i], s_popup_label_text[i]);
+      
+      strncpy(s_popup_time[i], tt, sizeof(s_popup_time[i]));
+      text_layer_set_text(s_popup_time_layer[i], s_popup_time[i]);
+  }
+}
+
 static void delete_layer(Layer *layer) {
   if (layer) {
     //APP_LOG(APP_LOG_LEVEL_DEBUG, "Freeing: %p", layer);
@@ -571,7 +665,7 @@ static void delete_layers() {
   s_local_date_layer = NULL;
 }
 
-static TextLayer *create_text_layer(GRect rect) {
+static TextLayer *create_text_layer(Window *window, GRect rect) {
   TextLayer *l = text_layer_create(rect);
   
   //APP_LOG(APP_LOG_LEVEL_DEBUG, "Allocated: %p", l);
@@ -579,7 +673,7 @@ static TextLayer *create_text_layer(GRect rect) {
   text_layer_set_background_color(l, GColorBlack);
   text_layer_set_text_color(l, GColorClear);
   
-  layer_add_child(window_get_root_layer(s_main_window), (Layer *) l);
+  layer_add_child(window_get_root_layer(window), (Layer *) l);
 
   return l;
 }
@@ -593,21 +687,21 @@ static void create_layers() {
     int display = s_display[i];
     
     if (DISPLAY_LOCAL_TIME == display) {
-      s_local_time_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_TIME_HEIGHT));
+      s_local_time_layer = create_text_layer(s_main_window, GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_TIME_HEIGHT));
       text_layer_set_font(s_local_time_layer, s_big_font);
       text_layer_set_text_alignment(s_local_time_layer, GTextAlignmentCenter);
       top += LAYER_LOCAL_TIME_HEIGHT;
       
-      s_local_date_layer = create_text_layer(GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_DATE_HEIGHT));
+      s_local_date_layer = create_text_layer(s_main_window, GRect(0, top, LAYER_LOCAL_WIDTH, LAYER_LOCAL_DATE_HEIGHT));
       text_layer_set_font(s_local_date_layer, s_medium_font);
       text_layer_set_text_alignment(s_local_date_layer, GTextAlignmentCenter);
       top += LAYER_LOCAL_DATE_HEIGHT;
     } else {
-      s_tz_label_layer[d] = create_text_layer(GRect(0, top, LAYER_TZ_LABEL_WIDTH, LAYER_TZ_HEIGHT));
+      s_tz_label_layer[d] = create_text_layer(s_main_window, GRect(0, top, LAYER_TZ_LABEL_WIDTH, LAYER_TZ_HEIGHT));
       text_layer_set_font(s_tz_label_layer[d], s_small_font);
       text_layer_set_text_alignment(s_tz_label_layer[d], GTextAlignmentLeft);
       
-      s_tz_time_layer[d] = create_text_layer(GRect(LAYER_TZ_LABEL_WIDTH, top, LAYER_TZ_TIME_WIDTH, LAYER_TZ_HEIGHT));
+      s_tz_time_layer[d] = create_text_layer(s_main_window, GRect(LAYER_TZ_LABEL_WIDTH, top, LAYER_TZ_TIME_WIDTH, LAYER_TZ_HEIGHT));
       text_layer_set_font(s_tz_time_layer[d], s_small_font);
       text_layer_set_text_alignment(s_tz_time_layer[d], GTextAlignmentRight);
       
@@ -628,15 +722,44 @@ static void main_window_load(Window *window) {
   bitmap_layer_set_alignment(s_status_battery_layer, GAlignLeft);
   bitmap_layer_set_compositing_mode(s_status_battery_layer, GCompOpAssignInverted);
   layer_add_child(window_get_root_layer(window), (Layer *) s_status_battery_layer);
-
-  // Make sure the time is displayed from the start
-  update_time();
 }
 
 static void main_window_unload(Window *window) {
   delete_layers();
   delete_layer((Layer *) s_status_bt_layer);
   delete_layer((Layer *) s_status_battery_layer);
+}
+
+static void delete_popup_layers() {
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    delete_layer((Layer *) s_popup_label_layer[i]);
+    delete_layer((Layer *) s_popup_time_layer[i]);
+  }
+}
+
+static void create_popup_layers() {
+  delete_popup_layers();
+  
+  int top = 0;
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    s_popup_label_layer[i] = create_text_layer(s_popup_window, GRect(0, top, LAYER_TZ_LABEL_WIDTH, LAYER_TZ_HEIGHT));
+    text_layer_set_font(s_popup_label_layer[i], s_small_font);
+    text_layer_set_text_alignment(s_popup_label_layer[i], GTextAlignmentLeft);
+      
+    s_popup_time_layer[i] = create_text_layer(s_popup_window, GRect(LAYER_TZ_LABEL_WIDTH, top, LAYER_TZ_TIME_WIDTH, LAYER_TZ_HEIGHT));
+    text_layer_set_font(s_popup_time_layer[i], s_small_font);
+    text_layer_set_text_alignment(s_popup_time_layer[i], GTextAlignmentRight);
+      
+    top += LAYER_TZ_HEIGHT;
+  }
+}
+
+static void popup_window_load(Window *window) {
+  create_popup_layers();
+}
+
+static void popup_window_unload(Window *window) {
+  delete_popup_layers();
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -647,7 +770,7 @@ static void send_tz_request() {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
   
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Requesting TZ offsets: %s, %s, %s, %s, %s", s_tz[0], s_tz[1], s_tz[2], s_tz[3], s_tz[4]);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Requesting TZ offsets: %s, %s, %s, %s, %s, %s, %s, %s, ", s_tz[0], s_tz[1], s_tz[2], s_tz[3], s_tz[4], s_tz[5], s_tz[6], s_tz[7]);
 
   // Add a key-value pair
   dict_write_cstring(iter, KEY_TZ1, s_tz[0]);
@@ -655,6 +778,9 @@ static void send_tz_request() {
   dict_write_cstring(iter, KEY_TZ3, s_tz[2]);
   dict_write_cstring(iter, KEY_TZ4, s_tz[3]);
   dict_write_cstring(iter, KEY_TZ5, s_tz[4]);
+  dict_write_cstring(iter, KEY_TZ6, s_tz[5]);
+  dict_write_cstring(iter, KEY_TZ7, s_tz[6]);
+  dict_write_cstring(iter, KEY_TZ8, s_tz[7]);
 
   // Send the message!
   app_message_outbox_send();
@@ -664,12 +790,37 @@ static void bluetooth_connection_callback(bool connected) {
   update_status();
 }
 
+static void popup_timer_callback(void *data) {
+  s_popup_open = false;
+  window_stack_pop(true);
+}
+
+static void tap_handler(AccelAxisType axis, int32_t direction) {
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Shake, oh shake the Pebble watch...");
+  if (s_popup_open) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup already open... doing nothing.");
+    return;
+  }
+  
+  s_popup_open = true;
+  
+  update_popup_time();
+  window_stack_push(s_popup_window, true);
+  
+  app_timer_register(POPUP_TIMEOUT_MS, popup_timer_callback, NULL);
+}
+
 static void init() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising... build: %s", build_time);
   
   // Create main Window element and assign to pointer
   s_main_window = window_create();
   window_set_background_color(s_main_window, GColorBlack);
+  
+  // Create popup window
+  s_popup_window = window_create();
+  window_set_background_color(s_popup_window, GColorBlack);
+  popup_window_load(s_popup_window);
   
   ResHandle big_handle = resource_get_handle(RESOURCE_ID_FONT_COMFORTAA_BOLD_33);
   s_big_font = fonts_load_custom_font(big_handle);
@@ -699,24 +850,31 @@ static void init() {
   persist_read_string(KEY_TZ3, s_tz[2], TZ_SIZE);
   persist_read_string(KEY_TZ4, s_tz[3], TZ_SIZE);
   persist_read_string(KEY_TZ5, s_tz[4], TZ_SIZE);
+  persist_read_string(KEY_TZ6, s_tz[5], TZ_SIZE);
+  persist_read_string(KEY_TZ7, s_tz[6], TZ_SIZE);
+  persist_read_string(KEY_TZ8, s_tz[7], TZ_SIZE);
   
   s_offset[0] = persist_read_int(KEY_OFFSET1);
   s_offset[1] = persist_read_int(KEY_OFFSET2);
   s_offset[2] = persist_read_int(KEY_OFFSET3);
   s_offset[3] = persist_read_int(KEY_OFFSET4);
   s_offset[4] = persist_read_int(KEY_OFFSET5);
+  s_offset[5] = persist_read_int(KEY_OFFSET6);
+  s_offset[6] = persist_read_int(KEY_OFFSET7);
+  s_offset[7] = persist_read_int(KEY_OFFSET8);
   
   persist_read_string(KEY_LABEL1, s_label[0], LABEL_SIZE);
   persist_read_string(KEY_LABEL2, s_label[1], LABEL_SIZE);
   persist_read_string(KEY_LABEL3, s_label[2], LABEL_SIZE);
   persist_read_string(KEY_LABEL4, s_label[3], LABEL_SIZE);
   persist_read_string(KEY_LABEL5, s_label[4], LABEL_SIZE);
+  persist_read_string(KEY_LABEL6, s_label[5], LABEL_SIZE);
+  persist_read_string(KEY_LABEL7, s_label[6], LABEL_SIZE);
+  persist_read_string(KEY_LABEL8, s_label[7], LABEL_SIZE);
 
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s - %s (%ld)", s_label[0], s_tz[0], s_offset[0]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 2: %s - %s (%ld)", s_label[1], s_tz[1], s_offset[1]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 3: %s - %s (%ld)", s_label[2], s_tz[2], s_offset[2]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 4: %s - %s (%ld)", s_label[3], s_tz[3], s_offset[3]);
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 5: %s - %s (%ld)", s_label[4], s_tz[4], s_offset[4]);
+  for (int i = 0; i < CONFIG_SIZE; i++) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded TZ configuration 1: %s - %s (%ld)", s_label[i], s_tz[i], s_offset[i]);
+  }
   
   sort_times();
   
@@ -744,11 +902,17 @@ static void init() {
   
   // Register for bluetooth status changes
   bluetooth_connection_service_subscribe(bluetooth_connection_callback);
+  
+  // Register for tap events
+  accel_tap_service_subscribe(tap_handler);
 }
 
 static void deinit() {
   // Destroy Window
   window_destroy(s_main_window);
+  
+  accel_tap_service_unsubscribe();
+  popup_window_unload(s_popup_window);
   
   if (s_big_font) {
     fonts_unload_custom_font(s_big_font);
