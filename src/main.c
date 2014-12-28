@@ -8,6 +8,7 @@
  * TODO Confirm config of less than 8 TZ works with popup
  * TODO Show charging symbol
  * TODO Don't listen for taps if there are too few TZs
+ * PROGRESSING Only go into popup mode on a double shake - seems too slow, debugging messing timings?
  * DONE Add battery indicator
  * DONE Add bluetooth indicator
  * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
@@ -74,7 +75,10 @@
 #define OFFSET_NO_DISPLAY (-2000)
   
 // Popup window time
-#define POPUP_TIMEOUT_MS (5000)
+#define POPUP_TIMEOUT_MS (10000)
+
+// Popup pending time
+#define POPUP_PENDING_TIMEOUT_MS (3000)
   
 static Window *s_main_window;
 static Window *s_popup_window;
@@ -144,8 +148,11 @@ static int s_p_display[CONFIG_SIZE];
 // Remember the last BT connection state.
 static bool s_last_bt_connected = true;
 
-// Popup control
-static bool s_popup_open = false;
+// Popup control: 0 - no popup, 1 - popup pending, 2 - popup displayed
+static int s_popup_state = false;
+
+// Remember the popup timer handle to allow it to be cancelled
+static AppTimer *s_popup_timer_handle = NULL;
 
 static void update_time();
 static void send_tz_request();
@@ -791,23 +798,42 @@ static void bluetooth_connection_callback(bool connected) {
 }
 
 static void popup_timer_callback(void *data) {
-  s_popup_open = false;
-  window_stack_pop(true);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup timer callback: %d", s_popup_state);
+  // State 0: do nothing, probably a race condition
+  // State 1: Pending timed out, so return to state 0
+  if (2 == s_popup_state) {
+    // State 2: Close the window, return to state 0
+    window_stack_pop(true);
+  }
+  
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Clearing popup state");
+  s_popup_state = 0;
 }
 
 static void tap_handler(AccelAxisType axis, int32_t direction) {
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "Shake, oh shake the Pebble watch...");
-  if (s_popup_open) {
-    APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup already open... doing nothing.");
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Shake, oh shake the Pebble watch... state=%d", s_popup_state);
+  if (2 == s_popup_state) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup already open... closing.");
+    app_timer_cancel(s_popup_timer_handle);
+    popup_timer_callback(NULL);
+    return;
+  }
+
+  if (1 == s_popup_state) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup pending... opening.");
+    s_popup_state = 2;
+    app_timer_cancel(s_popup_timer_handle);
+  
+    update_popup_time();
+    window_stack_push(s_popup_window, true);
+  
+    s_popup_timer_handle = app_timer_register(POPUP_TIMEOUT_MS, popup_timer_callback, NULL);
     return;
   }
   
-  s_popup_open = true;
-  
-  update_popup_time();
-  window_stack_push(s_popup_window, true);
-  
-  app_timer_register(POPUP_TIMEOUT_MS, popup_timer_callback, NULL);
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "No popup state... set pending.");
+  s_popup_state = 1;
+  s_popup_timer_handle = app_timer_register(POPUP_PENDING_TIMEOUT_MS, popup_timer_callback, NULL);
 }
 
 static void init() {
