@@ -88,8 +88,12 @@ static TextLayer *s_tz_label_layer[4];
 static TextLayer *s_tz_time_layer[4];
 static BitmapLayer *s_status_bt_layer = NULL;
 static BitmapLayer *s_status_battery_layer = NULL;
+static TextLayer *s_status_text_layer = NULL;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
+
+// Text storage for status layer
+static char s_status_label_text[LABEL_SIZE];
 
 // Text storage for TZ label display
 static char s_tz_label_text[4][LABEL_SIZE];
@@ -499,6 +503,10 @@ static void inbox_received_callback(DictionaryIterator *received, void *context)
 //   strcat(buffer, additional_line);
 // }
 
+static void set_status_text(char *msg) {
+  strncpy(s_status_label_text, msg, sizeof(s_status_label_text));
+}
+
 static void update_time() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "UpdateTime...");
   
@@ -587,6 +595,8 @@ static void update_status() {
     vibes_double_pulse();
   }
   s_last_bt_connected = bt_connected;
+
+  text_layer_set_text(s_status_text_layer, s_status_label_text);
 }
 
 static void update_popup_time() {
@@ -719,6 +729,9 @@ static void create_layers() {
 }
 
 static void main_window_load(Window *window) {
+  s_status_text_layer = create_text_layer(window, GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
+  set_status_text("");
+
   s_status_bt_layer = bitmap_layer_create(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
   bitmap_layer_set_alignment(s_status_bt_layer, GAlignRight);
   bitmap_layer_set_compositing_mode(s_status_bt_layer, GCompOpAssignInverted);
@@ -735,6 +748,7 @@ static void main_window_unload(Window *window) {
   delete_layers();
   delete_layer((Layer *) s_status_bt_layer);
   delete_layer((Layer *) s_status_battery_layer);
+  delete_layer((Layer *) s_status_text_layer);
 }
 
 static void delete_popup_layers() {
@@ -808,6 +822,9 @@ static void popup_timer_callback(void *data) {
   
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Clearing popup state");
   s_popup_state = 0;
+
+  set_status_text("");
+  update_status();
 }
 
 static void tap_handler(AccelAxisType axis, int32_t direction) {
@@ -823,7 +840,7 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Popup pending... opening.");
     s_popup_state = 2;
     app_timer_cancel(s_popup_timer_handle);
-  
+
     update_popup_time();
     window_stack_push(s_popup_window, true);
   
@@ -834,6 +851,9 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "No popup state... set pending.");
   s_popup_state = 1;
   s_popup_timer_handle = app_timer_register(POPUP_PENDING_TIMEOUT_MS, popup_timer_callback, NULL);
+
+  set_status_text("Pop?");
+  update_status();
 }
 
 static void init() {
