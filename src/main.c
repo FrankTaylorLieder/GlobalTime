@@ -255,7 +255,8 @@ static void sort_times() {
   
   create_layers();
 
-  // Handle popup display
+  // ----- Handle popup display ------
+
   // Initialise indexes to unsorted offsets.
   int pindexes[CONFIG_SIZE];
   for (int i = 0; i < CONFIG_SIZE; i++) {
@@ -632,25 +633,29 @@ static void update_popup_time() {
 
     struct tm *tick_time = localtime(&temp);
     
-    // Write the current hours and minutes into the buffer
-    if (clock_is_24h_style() == true) {
-      // Use 24 hour format
-      strftime(tt, sizeof("00:00"), "%H:%M", tick_time);
+    s_popup_label_text[i][0] = '\0';
+    if (OFFSET_NO_DISPLAY == offset) {
+      s_popup_time[i][0] = '\0';
     } else {
-      // Use 12 hour format
-      strftime(tt, sizeof("00:00"), "%I:%M", tick_time);
-    }
-    
+      // Write the current hours and minutes into the buffer
+      if (clock_is_24h_style() == true) {
+        // Use 24 hour format
+        strftime(tt, sizeof("00:00"), "%H:%M", tick_time);
+      } else {
+        // Use 12 hour format
+        strftime(tt, sizeof("00:00"), "%I:%M", tick_time);
+      }  
 
-      s_popup_label_text[i][0] = '\0';
       if (!s_offsets_up_to_date) {
         strncat(s_popup_label_text[i], "?", 1);
       }
       strncat(s_popup_label_text[i], s_label[display], LABEL_SIZE - 1);
-      text_layer_set_text(s_popup_label_layer[i], s_popup_label_text[i]);
-      
+    
       strncpy(s_popup_time[i], tt, sizeof(s_popup_time[i]));
-      text_layer_set_text(s_popup_time_layer[i], s_popup_time[i]);
+    }
+
+    text_layer_set_text(s_popup_label_layer[i], s_popup_label_text[i]);
+    text_layer_set_text(s_popup_time_layer[i], s_popup_time[i]);
   }
 }
 
