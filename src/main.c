@@ -644,13 +644,12 @@ static void update_popup_time() {
       } else {
         // Use 12 hour format
         strftime(tt, sizeof("00:00"), "%I:%M", tick_time);
-      }  
+      }
 
       if (!s_offsets_up_to_date) {
         strncat(s_popup_label_text[i], "?", 1);
       }
       strncat(s_popup_label_text[i], s_label[display], LABEL_SIZE - 1);
-    
       strncpy(s_popup_time[i], tt, sizeof(s_popup_time[i]));
     }
 
