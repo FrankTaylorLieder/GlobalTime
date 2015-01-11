@@ -1,14 +1,14 @@
 #include <pebble.h>
 
 /*
- * DONE Reduce size of JS, and include more interesting TZs
- * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
- * TODO BUG Elipsis for label truncation does not work in current font
- * DONE Show up to 8 TZs on a second screen when watch is shaken
- * TODO Confirm config of less than 8 TZ works with popup
  * TODO Show charging symbol
  * TODO Don't listen for taps if there are too few TZs
- * PROGRESSING Only go into popup mode on a double shake - seems too slow, debugging messing timings?
+ * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
+ * TODO BUG Elipsis for label truncation does not work in current font
+ * DONE Reduce size of JS, and include more interesting TZs
+ * DONE Show up to 8 TZs on a second screen when watch is shaken
+ * DONE Confirm config of less than 8 TZ works with popup
+ * DONE Only go into popup mode on a double shake - seems too slow, debugging messing timings?
  * DONE Add battery indicator
  * DONE Add bluetooth indicator
  * DONE Add indicator if send_tz_request has not replied... may indicate remote TZ configuration is not up to date.
