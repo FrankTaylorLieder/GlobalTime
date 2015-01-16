@@ -1,10 +1,11 @@
 #include <pebble.h>
 
 /*
- * TODO Show charging symbol
  * TODO Don't listen for taps if there are too few TZs
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
+ * TODO Move Pop? to RHS
+ * DONE Show charging symbol
  * DONE Reduce size of JS, and include more interesting TZs
  * DONE Show up to 8 TZs on a second screen when watch is shaken
  * DONE Confirm config of less than 8 TZ works with popup
@@ -107,11 +108,6 @@ static char s_popup_label_text[CONFIG_SIZE][LABEL_SIZE];
 #define LAYER_TZ_LABEL_WIDTH (104)
 #define LAYER_TZ_TIME_WIDTH (40)
 #define LAYER_TZ_HEIGHT (21)
-
-#define LAYER_STATUS_TEXT_WIDTH (51)
-#define LAYER_STATUS_BMP_WIDTH (16)
-#define LAYER_STATUS_GAP (10)
-#define LAYER_STATUS_HEIGHT (16)
 
 #define LAYER_LOCAL_WIDTH (144)
 #define LAYER_LOCAL_TIME_HEIGHT (36)
@@ -705,6 +701,8 @@ static TextLayer *create_text_layer(Window *window, GRect rect) {
   return l;
 }
 
+#define LAYER_STATUS_HEIGHT (16)
+
 static void create_layers() {
   delete_layers();
   
@@ -738,12 +736,19 @@ static void create_layers() {
   }
 }
 
+/*
+ * Screen is 144 wide, 168 deep.
+ */
+
+#define LAYER_STATUS_LEFT_GAP (51)
+#define LAYER_STATUS_BMP_WIDTH (16)
+#define LAYER_STATUS_GAP (10)
+#define LAYER_STATUS_TEXT_WIDTH (35)
+
 static void main_window_load(Window *window) {
   int left = 0;
-  s_status_text_layer = create_text_layer(window, GRect(left, 0, LAYER_STATUS_TEXT_WIDTH, LAYER_STATUS_HEIGHT));
-  set_status_text("");
 
-  left += LAYER_STATUS_TEXT_WIDTH;
+  left += LAYER_STATUS_LEFT_GAP;
   s_status_bt_layer = bitmap_layer_create(GRect(left, 0, LAYER_STATUS_BMP_WIDTH, LAYER_STATUS_HEIGHT));
   bitmap_layer_set_alignment(s_status_bt_layer, GAlignRight);
   bitmap_layer_set_compositing_mode(s_status_bt_layer, GCompOpAssignInverted);
@@ -762,6 +767,12 @@ static void main_window_load(Window *window) {
   bitmap_layer_set_alignment(s_status_charge_layer, GAlignLeft);
   bitmap_layer_set_compositing_mode(s_status_charge_layer, GCompOpAssignInverted);
   layer_add_child(window_get_root_layer(window), (Layer *) s_status_charge_layer);
+
+  left += LAYER_STATUS_BMP_WIDTH;
+  s_status_text_layer = create_text_layer(window, GRect(left, 0, LAYER_STATUS_TEXT_WIDTH, LAYER_STATUS_HEIGHT));
+  text_layer_set_text_alignment(s_status_text_layer, GAlignRight);
+  set_status_text("");
+
 }
 
 static void main_window_unload(Window *window) {
@@ -873,7 +884,7 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
   s_popup_state = 1;
   s_popup_timer_handle = app_timer_register(POPUP_PENDING_TIMEOUT_MS, popup_timer_callback, NULL);
 
-  set_status_text("Pop?");
+  set_status_text("*");
   update_status();
 }
 
