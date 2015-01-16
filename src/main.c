@@ -88,6 +88,7 @@ static TextLayer *s_tz_label_layer[4];
 static TextLayer *s_tz_time_layer[4];
 static BitmapLayer *s_status_bt_layer = NULL;
 static BitmapLayer *s_status_battery_layer = NULL;
+static BitmapLayer *s_status_charge_layer = NULL;
 static TextLayer *s_status_text_layer = NULL;
 static TextLayer *s_local_time_layer;
 static TextLayer *s_local_date_layer;
@@ -107,7 +108,8 @@ static char s_popup_label_text[CONFIG_SIZE][LABEL_SIZE];
 #define LAYER_TZ_TIME_WIDTH (40)
 #define LAYER_TZ_HEIGHT (21)
 
-#define LAYER_STATUS_WIDTH (67)
+#define LAYER_STATUS_TEXT_WIDTH (51)
+#define LAYER_STATUS_BMP_WIDTH (16)
 #define LAYER_STATUS_GAP (10)
 #define LAYER_STATUS_HEIGHT (16)
 
@@ -122,6 +124,8 @@ static GFont s_small_font = NULL;
 static GBitmap *s_bmp_bt = NULL;
 static GBitmap *s_bmp_nobt = NULL;
 static GBitmap *s_bmp_battery[10];
+static GBitmap *s_bmp_charge = NULL;
+static GBitmap *s_bmp_nocharge = NULL;
 
 // Offsets for configured timezones, DISPLAY_NO_DISPLAY for no display.
 static int32_t s_offset[CONFIG_SIZE];
@@ -586,6 +590,8 @@ static void update_status() {
   if (i > 9) i = 9;
   if (i < 0) i = 0;
   bitmap_layer_set_bitmap(s_status_battery_layer, s_bmp_battery[i]);
+
+  bitmap_layer_set_bitmap(s_status_charge_layer, bcs.is_plugged ? s_bmp_charge : s_bmp_nocharge);
   
   bool bt_connected = bluetooth_connection_service_peek();
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Bluetooth %s", bt_connected ? "connected" : "disconnected");
@@ -733,25 +739,36 @@ static void create_layers() {
 }
 
 static void main_window_load(Window *window) {
-  s_status_text_layer = create_text_layer(window, GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
+  int left = 0;
+  s_status_text_layer = create_text_layer(window, GRect(left, 0, LAYER_STATUS_TEXT_WIDTH, LAYER_STATUS_HEIGHT));
   set_status_text("");
 
-  s_status_bt_layer = bitmap_layer_create(GRect(0, 0, LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));
+  left += LAYER_STATUS_TEXT_WIDTH;
+  s_status_bt_layer = bitmap_layer_create(GRect(left, 0, LAYER_STATUS_BMP_WIDTH, LAYER_STATUS_HEIGHT));
   bitmap_layer_set_alignment(s_status_bt_layer, GAlignRight);
   bitmap_layer_set_compositing_mode(s_status_bt_layer, GCompOpAssignInverted);
   layer_add_child(window_get_root_layer(window), (Layer *) s_status_bt_layer);
   
-  s_status_battery_layer = bitmap_layer_create(GRect(LAYER_STATUS_WIDTH + LAYER_STATUS_GAP, 0,
-                                                     LAYER_STATUS_WIDTH, LAYER_STATUS_HEIGHT));\
+  left += LAYER_STATUS_BMP_WIDTH + LAYER_STATUS_GAP;
+  s_status_battery_layer = bitmap_layer_create(GRect(left, 0,
+                                                     LAYER_STATUS_BMP_WIDTH, LAYER_STATUS_HEIGHT));\
   bitmap_layer_set_alignment(s_status_battery_layer, GAlignLeft);
   bitmap_layer_set_compositing_mode(s_status_battery_layer, GCompOpAssignInverted);
   layer_add_child(window_get_root_layer(window), (Layer *) s_status_battery_layer);
+
+  left += LAYER_STATUS_BMP_WIDTH;
+  s_status_charge_layer = bitmap_layer_create(GRect(left, 0,
+                                                    LAYER_STATUS_BMP_WIDTH, LAYER_STATUS_HEIGHT));\
+  bitmap_layer_set_alignment(s_status_charge_layer, GAlignLeft);
+  bitmap_layer_set_compositing_mode(s_status_charge_layer, GCompOpAssignInverted);
+  layer_add_child(window_get_root_layer(window), (Layer *) s_status_charge_layer);
 }
 
 static void main_window_unload(Window *window) {
   delete_layers();
   delete_layer((Layer *) s_status_bt_layer);
   delete_layer((Layer *) s_status_battery_layer);
+  delete_layer((Layer *) s_status_charge_layer);
   delete_layer((Layer *) s_status_text_layer);
 }
 
@@ -860,6 +877,11 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
   update_status();
 }
 
+static void battery_state_handler(BatteryChargeState s) {
+  update_status();
+}
+
+
 static void init() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "GlobalTime initialising... build: %s", build_time);
   
@@ -883,6 +905,8 @@ static void init() {
   
   s_bmp_bt = gbitmap_create_with_resource(RESOURCE_ID_BMP_BT);
   s_bmp_nobt = gbitmap_create_with_resource(RESOURCE_ID_BMP_NOBT);
+  s_bmp_charge = gbitmap_create_with_resource(RESOURCE_ID_BMP_CHARGE);
+  s_bmp_nocharge = gbitmap_create_with_resource(RESOURCE_ID_BMP_NOCHARGE);
   s_bmp_battery[0] = gbitmap_create_with_resource(RESOURCE_ID_BMP_00);
   s_bmp_battery[1] = gbitmap_create_with_resource(RESOURCE_ID_BMP_10);
   s_bmp_battery[2] = gbitmap_create_with_resource(RESOURCE_ID_BMP_20);
@@ -952,6 +976,9 @@ static void init() {
   
   // Register for bluetooth status changes
   bluetooth_connection_service_subscribe(bluetooth_connection_callback);
+
+  // Register for battery state changes
+  battery_state_service_subscribe(battery_state_handler);
   
   // Register for tap events
   accel_tap_service_subscribe(tap_handler);
@@ -976,6 +1003,8 @@ static void deinit() {
   
   if (s_bmp_bt) gbitmap_destroy(s_bmp_bt);
   if (s_bmp_nobt) gbitmap_destroy(s_bmp_nobt);
+  if (s_bmp_charge) gbitmap_destroy(s_bmp_charge);
+  if (s_bmp_nocharge) gbitmap_destroy(s_bmp_nocharge);
   for (int i = 0; i < 10; i++) {
     if (s_bmp_battery[i]) gbitmap_destroy(s_bmp_battery[i]);
   }

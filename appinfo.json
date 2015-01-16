@@ -110,6 +110,16 @@
                 "file": "images/nobt.png",
                 "name": "BMP_NOBT",
                 "type": "png"
+            },
+            {
+                "file": "images/charge.png",
+                "name": "BMP_CHARGE",
+                "type": "png"
+            },
+            {
+                "file": "images/nocharge.png",
+                "name": "BMP_NOCHARGE",
+                "type": "png"
             }
         ]
     },
