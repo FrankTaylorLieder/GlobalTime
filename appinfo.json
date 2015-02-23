@@ -34,9 +34,79 @@
     "resources": {
         "media": [
             {
+                "file": "images/nocharge.png",
+                "name": "BMP_NOCHARGE",
+                "type": "png"
+            },
+            {
+                "file": "images/charge.png",
+                "name": "BMP_CHARGE",
+                "type": "png"
+            },
+            {
+                "file": "images/nobt.png",
+                "name": "BMP_NOBT",
+                "type": "png"
+            },
+            {
+                "file": "images/bt.png",
+                "name": "BMP_BT",
+                "type": "png"
+            },
+            {
+                "file": "images/00.png",
+                "name": "BMP_00",
+                "type": "png"
+            },
+            {
+                "file": "images/10.png",
+                "name": "BMP_10",
+                "type": "png"
+            },
+            {
+                "file": "images/20.png",
+                "name": "BMP_20",
+                "type": "png"
+            },
+            {
+                "file": "images/30.png",
+                "name": "BMP_30",
+                "type": "png"
+            },
+            {
+                "file": "images/40.png",
+                "name": "BMP_40",
+                "type": "png"
+            },
+            {
+                "file": "images/50.png",
+                "name": "BMP_50",
+                "type": "png"
+            },
+            {
+                "file": "images/60.png",
+                "name": "BMP_60",
+                "type": "png"
+            },
+            {
+                "file": "images/70.png",
+                "name": "BMP_70",
+                "type": "png"
+            },
+            {
+                "file": "images/80.png",
+                "name": "BMP_80",
+                "type": "png"
+            },
+            {
+                "file": "images/90.png",
+                "name": "BMP_90",
+                "type": "png"
+            },
+            {
                 "compatibility": "2.7",
-                "file": "fonts/Comfortaa-Regular.ttf",
-                "name": "FONT_COMFORTAA_REGULAR_15",
+                "file": "fonts/Comfortaa-Bold.ttf",
+                "name": "FONT_COMFORTAA_BOLD_23",
                 "type": "font"
             },
             {
@@ -47,79 +117,9 @@
             },
             {
                 "compatibility": "2.7",
-                "file": "fonts/Comfortaa-Bold.ttf",
-                "name": "FONT_COMFORTAA_BOLD_23",
+                "file": "fonts/Comfortaa-Regular.ttf",
+                "name": "FONT_COMFORTAA_REGULAR_15",
                 "type": "font"
-            },
-            {
-                "file": "images/90.png",
-                "name": "BMP_90",
-                "type": "png"
-            },
-            {
-                "file": "images/80.png",
-                "name": "BMP_80",
-                "type": "png"
-            },
-            {
-                "file": "images/70.png",
-                "name": "BMP_70",
-                "type": "png"
-            },
-            {
-                "file": "images/60.png",
-                "name": "BMP_60",
-                "type": "png"
-            },
-            {
-                "file": "images/50.png",
-                "name": "BMP_50",
-                "type": "png"
-            },
-            {
-                "file": "images/40.png",
-                "name": "BMP_40",
-                "type": "png"
-            },
-            {
-                "file": "images/30.png",
-                "name": "BMP_30",
-                "type": "png"
-            },
-            {
-                "file": "images/20.png",
-                "name": "BMP_20",
-                "type": "png"
-            },
-            {
-                "file": "images/10.png",
-                "name": "BMP_10",
-                "type": "png"
-            },
-            {
-                "file": "images/00.png",
-                "name": "BMP_00",
-                "type": "png"
-            },
-            {
-                "file": "images/bt.png",
-                "name": "BMP_BT",
-                "type": "png"
-            },
-            {
-                "file": "images/nobt.png",
-                "name": "BMP_NOBT",
-                "type": "png"
-            },
-            {
-                "file": "images/charge.png",
-                "name": "BMP_CHARGE",
-                "type": "png"
-            },
-            {
-                "file": "images/nocharge.png",
-                "name": "BMP_NOCHARGE",
-                "type": "png"
             }
         ]
     },

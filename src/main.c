@@ -5,6 +5,7 @@
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
  * TODO Move Pop? to RHS
+ * TODO BUG: when the current TZ is the last in the list, CRASH
  * DONE Show charging symbol
  * DONE Reduce size of JS, and include more interesting TZs
  * DONE Show up to 8 TZs on a second screen when watch is shaken
