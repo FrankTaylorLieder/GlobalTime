@@ -4,8 +4,9 @@
  * TODO Don't listen for taps if there are too few TZs
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
- * TODO Move Pop? to RHS
- * TODO BUG: when the current TZ is the last in the list, CRASH
+ * DONE Move Pop? to RHS
+ * DONE BUG: when the current TZ is not in the first 4 TZs we get an intermittent crash.
+ *      Solution: s_display was being overrun as we accidently searched for 5 timezones.
  * DONE Show charging symbol
  * DONE Reduce size of JS, and include more interesting TZs
  * DONE Show up to 8 TZs on a second screen when watch is shaken
@@ -177,12 +178,12 @@ static void compare_swap(int index[], int i) {
 static void sort_times() {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "sort_times...");
   
-  // Determine of any of the offsets is local time,
-  // if so then we can take all 5 TZs as one will be local time.
+  // Determine if any of the first 4 offsets is local time,
+  // if so then we can take 5 TZs as one will be local time.
   int usable_tz = 4;
-  for (int i = 0; i < CONFIG_SIZE; i++) {
+  for (int i = 0; i < DISPLAY_SIZE; i++) {
     if (0 == s_offset[i]) {
-      // Found a local time, so we can use all 5 configured TZs
+      // Found a local time, so we can use the first 5 configured TZs
       usable_tz = 5;
       break;
     }
