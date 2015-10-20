@@ -4,6 +4,8 @@
  * TODO Don't listen for taps if there are too few TZs
  * TODO BUG: persisting offset is returning status_t 4, even though it looks like it is working. A problem?
  * TODO BUG Elipsis for label truncation does not work in current font
+ * TODO Add Internet message as a replacement for a TZ (configure update frequency, show as stale if cannot update)
+ * TODO Hide battery and bluetooth when connected/more than 50% full (option)
  * DONE Move Pop? to RHS
  * DONE BUG: when the current TZ is not in the first 4 TZs we get an intermittent crash.
  *      Solution: s_display was being overrun as we accidently searched for 5 timezones.
